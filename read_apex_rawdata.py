@@ -26,14 +26,14 @@ for current_line in whole_file:
         dat = line.split()
         headers_tmp = ['Time', 'P','T','S','O2']+dat[headers_cell+2:headers_cell+values-2]
         data = dat[headers_cell+valuesh+2:headers_cell+2+valuesh+values]
-        units = ['']+map(lambda x: re.sub('[0-9\.\-\s]*','',x),data)
+        units = ['']+list(map(lambda x: re.sub('[0-9\.\-\s]*','',x),data))
         headers = []
         for i,j in zip(headers_tmp, units):
             if(j is not ''):
                 headers.append("{}({})".format(i,j))
             else:
                 headers.append(i)
-        data = map(lambda x: float(re.search('-?[0-9\.]*',x).group()),data)
+        data = list(map(lambda x: float(re.search('-?[0-9\.]*',x).group()),data))
         data = [time] + data
         full_data.insert(0,data)
 full_data = np.array(full_data)
