@@ -3,6 +3,8 @@
 Created on Fri May 22 12:04:54 2020
 
 @author: siirias
+short script meant to convert apex raw data files into
+pandas dataframe
 """
 import re
 import numpy as np
@@ -12,7 +14,7 @@ in_file = "D:\\Data\\ArgoData\\PoijuData9234\\9234.007.log"
 
 whole_file = open(in_file).readlines()
 values = 11
-valuesh = values-4  # koska osa headereistä on yhdessä solussa
+valuesh = values-4  # gludge, as the header format crams CTD in one value
 headers_cell = 16
 full_data = []
 for current_line in whole_file:
