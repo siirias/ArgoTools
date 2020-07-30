@@ -234,10 +234,14 @@ def is_broken(dat,depth,data_type='salt',qc_flag=None,qc_profs=None,surface_sali
     
     return False
 
-def give_statistics():
+def give_statistics(files_to_use = None):
     start=mp.dates.datetime.datetime(1000,5,5)
     end=mp.dates.datetime.datetime(3030,5,5)
-    for filename in file_names_converted:
+    if(not files_to_use):
+        files_to_use = file_names_converted
+    elif type(files_to_use) == str:
+        files_to_use = [files_to_use]
+    for filename in files_to_use:
         print filename,":"
         argo = netcdf.netcdf_file(filename,'r')
         temp = argo.variables['TEMP_ADJUSTED'][:].copy()
@@ -266,3 +270,29 @@ def give_statistics():
         print "depth avg:{}, min:{},max:{}".format(avg_pres,min_pres,max_pres)
         print "-----\n"
         
+def get_primary_indices(dataset):
+    #dataset is netcdffile loaded with xarray .opendataset
+    sampling_schemes =  dataset['VERTICAL_SAMPLING_SCHEME']
+    #See http://www.odip.org/documents/odip/downloads/20/argo-dm-user-manual.pdf
+    # page 18, this determines the type of profile, only one primary
+    #per profile
+    sampling_schemes = map(str,sampling_schemes) #convert to strings
+    primaries = map(lambda x:'Primary' in x, sampling_schemes)
+    #true where primary.
+    primaries=np.array(primaries)
+    return primaries
+
+def interpolate_data_to_depths(variable, depths, new_depth_axis):
+    #assumes data is format (profile_n, level_n)
+    d_shape = variable.shape
+    new_data = np.zeros((d_shape[0],new_depth_axis.shape[0]))
+    for i in range(new_data.shape[0]):
+        min_depth = np.nanmin(depths[i,:])
+        max_depth = np.nanmax(depths[i,:])
+        for d in range(new_data.shape[1]):
+            val = get_closest(depths[i,:],variable[i,:],new_depth_axis[d])[1]
+            if(new_depth_axis[d]>max_depth or \
+               new_depth_axis[d]<min_depth):
+                val = np.nan
+            new_data[i,d] = val
+    return  new_data
