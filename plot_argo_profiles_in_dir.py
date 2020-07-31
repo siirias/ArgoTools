@@ -16,11 +16,13 @@ from netCDF4 import Dataset
 import xarray as xr
 import argohelper as ah
 
+#dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\"
 dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\Cape\\"
+output_dir = "D:\\Data\\ArgoData\\Figures\\"
 figure_setup = "EARISE_BP"
 figure_name = "ArgoPlot"
 fig_dpi = 300
-interp_depths = np.array(range(210))
+interp_depths = np.array(np.arange(0,210,0.1))
 
 figure_name+="_profile"
 plot_profiles = True
@@ -54,5 +56,5 @@ if plot_profiles:
             plt.colorbar()
             plt.title(var)
 
-plt.savefig(dir_to_plot+figure_name+'.png' ,facecolor='w',dpi=fig_dpi)
-plt.savefig(dir_to_plot+figure_name+'.eps' ,facecolor='w',dpi=fig_dpi)
+plt.savefig(output_dir+figure_name+'.png' ,facecolor='w',dpi=fig_dpi)
+plt.savefig(output_dir+figure_name+'.eps' ,facecolor='w',dpi=fig_dpi)
