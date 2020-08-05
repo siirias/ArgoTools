@@ -23,7 +23,7 @@ dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\"
 #dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\Cape\\"
 output_dir = "D:\\Data\\ArgoData\\Figures\\"
 figure_setup = "EARISE_BP"
-figure_name = "ArgoPlot"
+figure_name = "ArgoPlot_profile"
 figure_size = (8,10)
 fig_dpi = 300
 c_map = 'viridis'
@@ -31,7 +31,6 @@ interp_depths = np.array(np.arange(0,210,0.1))
 plot_profile_timelines = True
 plot_profile_clusters = True
 
-figure_name+="_profile"
 variables = ['TEMP','PSAL']
 start=mp.dates.datetime.datetime(1000,5,5)
 end=mp.dates.datetime.datetime(3030,5,5)
@@ -64,8 +63,9 @@ if plot_profile_timelines:
             plt.title("Float "+float_name)
             plt.ylabel(ah.axes_label_from_variable_name('PRES'))
             plt.xlabel(ah.axes_label_from_variable_name('JULD'))
-    plt.savefig(output_dir+figure_name+'_tl.png' ,facecolor='w',dpi=fig_dpi)
-    plt.savefig(output_dir+figure_name+'_tl.eps' ,facecolor='w',dpi=fig_dpi)
+            filename = "{}_{}_tl".format(float_name,var)
+            plt.savefig(output_dir+filename+'.png' ,facecolor='w',dpi=fig_dpi)
+            plt.savefig(output_dir+filename+'.eps' ,facecolor='w',dpi=fig_dpi)
 
 if plot_profile_clusters:
     for f in files_to_plot:
@@ -93,5 +93,6 @@ if plot_profile_clusters:
             cbar.ax.set_yticklabels(\
                     pd.to_datetime(\
                         cbar.get_ticks()).strftime(date_format='%d %b %Y'))
-    plt.savefig(output_dir+figure_name+'_cl.png' ,facecolor='w',dpi=fig_dpi)
-    plt.savefig(output_dir+figure_name+'_cl.eps' ,facecolor='w',dpi=fig_dpi)
+            filename = "{}_{}_cl".format(float_name,var)
+            plt.savefig(output_dir+filename+'.png' ,facecolor='w',dpi=fig_dpi)
+            plt.savefig(output_dir+filename+'.eps' ,facecolor='w',dpi=fig_dpi)
