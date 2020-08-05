@@ -14,32 +14,37 @@ import numpy as np
 from mpl_toolkits.basemap import Basemap
 from netCDF4 import Dataset
 import xarray as xr
+import pandas as pd
 import argohelper as ah
+import cmocean as cmo
 
-#dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\"
-dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\Cape\\"
+
+dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\"
+#dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\Cape\\"
 output_dir = "D:\\Data\\ArgoData\\Figures\\"
 figure_setup = "EARISE_BP"
 figure_name = "ArgoPlot"
+figure_size = (8,10)
 fig_dpi = 300
+c_map = 'viridis'
 interp_depths = np.array(np.arange(0,210,0.1))
+plot_profile_timelines = True
+plot_profile_clusters = True
 
 figure_name+="_profile"
-plot_profiles = True
 variables = ['TEMP','PSAL']
 start=mp.dates.datetime.datetime(1000,5,5)
 end=mp.dates.datetime.datetime(3030,5,5)
 
 
 files_to_plot=[i for i in os.listdir(dir_to_plot) if i.endswith('.nc')]
-labels= map(lambda x: re.search('\d{7}',\
-                    files_to_plot[x]).group(0),range(len(files_to_plot)))                
-colors=all_colors[0:len(files_to_plot)]
-if plot_profiles:
-    for f,col,lab in zip(files_to_plot,colors,labels):
+if plot_profile_timelines:
+    for f in files_to_plot:
         for var in variables:
             fig=plt.figure(figsize=figure_size)
+            float_name = re.search("(\d*)_",f).groups()[0]
             plt.clf()
+            cmap = ah.axes_label_from_variable_name(var, give_colormap=True)[1]            
             d=xr.open_dataset(dir_to_plot+f)
             primaries = ah.get_primary_indices(d)
             interp_data = ah.interpolate_data_to_depths(\
@@ -50,11 +55,43 @@ if plot_profiles:
             plt.pcolormesh(\
                     np.array(d['JULD'])[primaries],\
                     interp_depths,\
-                    np.transpose(interp_data))
+                    np.transpose(interp_data),\
+                    cmap = cmap)
             ah.give_statistics(dir_to_plot+f)
             plt.gca().invert_yaxis()
-            plt.colorbar()
-            plt.title(var)
+            cbar = plt.colorbar()
+            cbar.set_label(ah.axes_label_from_variable_name(var))
+            plt.title("Float "+float_name)
+            plt.ylabel(ah.axes_label_from_variable_name('PRES'))
+            plt.xlabel(ah.axes_label_from_variable_name('JULD'))
+    plt.savefig(output_dir+figure_name+'_tl.png' ,facecolor='w',dpi=fig_dpi)
+    plt.savefig(output_dir+figure_name+'_tl.eps' ,facecolor='w',dpi=fig_dpi)
 
-plt.savefig(output_dir+figure_name+'.png' ,facecolor='w',dpi=fig_dpi)
-plt.savefig(output_dir+figure_name+'.eps' ,facecolor='w',dpi=fig_dpi)
+if plot_profile_clusters:
+    for f in files_to_plot:
+        for var in variables:
+            float_name = re.search("(\d*)_",f).groups()[0]
+            fig=plt.figure(figsize=figure_size)
+            plt.clf()
+            d=xr.open_dataset(dir_to_plot+f)
+            primaries = ah.get_primary_indices(d)
+            #create colorbar for time-indices
+            sm = plt.cm.ScalarMappable(cmap = c_map, \
+                        norm=plt.Normalize(vmin = d['JULD'].min(),\
+                                           vmax=d['JULD'].max()))
+            sm._A=[] # this is needed as scalar mappable needs someting to map.
+            clims = sm.get_clim()
+            for i in range(d[var].shape[0]):
+                color = float(d['JULD'][i]-clims[0])/float(clims[1]-clims[0])
+                color = sm.get_cmap()(color)
+                plt.plot(d[var][i,:], d['PRES'][i,:], color = color)
+            plt.title("Float " + float_name)
+            plt.ylabel(ah.axes_label_from_variable_name('PRES'))
+            plt.xlabel(ah.axes_label_from_variable_name(var))
+            plt.gca().invert_yaxis()
+            cbar = plt.colorbar(sm)            
+            cbar.ax.set_yticklabels(\
+                    pd.to_datetime(\
+                        cbar.get_ticks()).strftime(date_format='%d %b %Y'))
+    plt.savefig(output_dir+figure_name+'_cl.png' ,facecolor='w',dpi=fig_dpi)
+    plt.savefig(output_dir+figure_name+'_cl.eps' ,facecolor='w',dpi=fig_dpi)

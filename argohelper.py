@@ -5,7 +5,7 @@ Created on Tue Jan 30 10:59:09 2018
 @author: siirias
 """
 import sys
-sys.path.insert(0,'D:\\svnfmi_merimallit\\qa\\nemo')
+#sys.path.insert(0,'D:\\svnfmi_merimallit\\qa\\nemo')
 import datetime as dt
 import calendar
 import matplotlib as mp
@@ -14,9 +14,10 @@ import numpy as np
 import pandas as pd
 from scipy.io import netcdf
 from mpl_toolkits.basemap import Basemap, shiftgrid, cm
-import ModelQATools as qa
+#import ModelQATools as qa
 import math
 import gsw
+import cmocean 
 ctd_data_file='./Siiriaetal2017/0316544c.csv'
 
 file_names = ['6902014_20161123144244280.nc',
@@ -296,3 +297,21 @@ def interpolate_data_to_depths(variable, depths, new_depth_axis):
                 val = np.nan
             new_data[i,d] = val
     return  new_data
+
+def axes_label_from_variable_name(var_name, give_colormap = False):
+    #picks typical axis label based on usual parameters plotted
+    axes_label = var_name
+    colormap = cmocean.cm.tarn
+    if var_name in ['TEMP']:
+        axes_label = 'Temperature/ $^\circ$C'
+        colormap = cmocean.cm.thermal
+    if var_name in ['PSAL']:
+        axes_label = 'Salinity'
+        colormap = cmocean.cm.haline
+    if var_name in ['PRES']:
+        axes_label = 'Pressure/dbar'
+        colormap = cmocean.cm.deep
+    if(give_colormap):
+        return (axes_label, colormap)
+    else:
+        return axes_label
