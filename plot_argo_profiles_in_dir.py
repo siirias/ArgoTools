@@ -64,8 +64,10 @@ if plot_profile_timelines:
             plt.ylabel(ah.axes_label_from_variable_name('PRES'))
             plt.xlabel(ah.axes_label_from_variable_name('JULD'))
             filename = "{}_{}_tl".format(float_name,var)
-            plt.savefig(output_dir+filename+'.png' ,facecolor='w',dpi=fig_dpi)
-            plt.savefig(output_dir+filename+'.eps' ,facecolor='w',dpi=fig_dpi)
+            plt.savefig(output_dir+filename+'.png' ,\
+                        facecolor='w',dpi=fig_dpi,bbox_inches='tight')
+            plt.savefig(output_dir+filename+'.eps' ,\
+                        facecolor='w',dpi=fig_dpi,bbox_inches='tight')
 
 if plot_profile_clusters:
     for f in files_to_plot:
@@ -94,5 +96,7 @@ if plot_profile_clusters:
                     pd.to_datetime(\
                         cbar.get_ticks()).strftime(date_format='%d %b %Y'))
             filename = "{}_{}_cl".format(float_name,var)
-            plt.savefig(output_dir+filename+'.png' ,facecolor='w',dpi=fig_dpi)
-            plt.savefig(output_dir+filename+'.eps' ,facecolor='w',dpi=fig_dpi)
+            plt.savefig(output_dir+filename+'.png' ,\
+                        facecolor='w',dpi=fig_dpi,bbox_inches='tight')
+            plt.savefig(output_dir+filename+'.eps' ,\
+                        facecolor='w',dpi=fig_dpi,bbox_inches='tight')

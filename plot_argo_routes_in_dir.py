@@ -5,19 +5,22 @@ Created on Mon Apr 11 18:11:08 2016
 @author: siirias
 """
 import sys
-sys.path.insert(0,'D:\\Data\\svnfmi_merimallit\\qa\\nemo')
 import os
 import re
 import matplotlib as mp
 import matplotlib.pyplot as plt
 import numpy as np
-import ModelQATools as qa
 from mpl_toolkits.basemap import Basemap
 from netCDF4 import Dataset
+import xarray as xr
+import argohelper as ah
+import cmocean as cmo
+from itertools import cycle
 
-
-dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\"
-figure_setup = "EARISE_BP"
+dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise\\" #default value
+output_dir = "D:\\Data\\ArgoData\\Figures\\"
+data_dir = "D:\\Data\\ArgoData\\"  # mainly for topography data
+figure_setup = "FullBalticEAR" #May change dir_to_plot
 figure_name="ArgoPlot"
 fig_dpi = 300
 line_width = 1.2  #0.7
@@ -28,6 +31,19 @@ marker_size = 5
 legend_size = 10
 label_step = 2.0
 bathy_max = 300 # meters
+all_colors= ["#ff0000","#000000","#0000ff",\
+             "#00ff00","#007060","#d000d0",\
+             "#d00000","#888888","#ffff00",\
+             "#ff00ff", "#00ffff","#600000",\
+             "#aa0055", "#50ff50", "#ff5050",\
+             "#5050ff", "#505000", "#500050",\
+             "#005050", "#50ff00", "#ff5000"]
+plot_bathymetry=True
+plot_legends=True
+plot_routes=True
+plot_points = True
+start=mp.dates.datetime.datetime(1800,5,5)
+end=mp.dates.datetime.datetime(2230,5,5)
 
 if( figure_setup == "GoB"):
     figure_name = "Gulf of Bothnia"
@@ -37,8 +53,19 @@ if(figure_setup == "FullBaltic"):
     lon_min=16;lat_min=53;lon_max=30.5;lat_max=66;
     figure_size=(8,10)
 if(figure_setup == "FullBalticEAR"):
+    dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise\\" 
+    line_alpha = 0.4
+    plot_points = False
+    plot_legends = False
+    bathy_max = 400 # meters
     lon_min=10;lat_min=53;lon_max=30.5;lat_max=66;
     figure_size=(12,10)
+    all_colors = ['#000000']
+if(figure_setup == "AllFinnish"):
+    lon_min=10;lat_min=53;lon_max=30.5;lat_max=66;
+    figure_name = 'AllFinnishFloats'
+    figure_size=(12,10)
+    dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\AllFinnish\\"
 if(figure_setup == "GotlandD"):
     lon_min=18;lat_min=55;lon_max=21;lat_max=59;
 if(figure_setup == "Bothnian Sea"):
@@ -53,22 +80,9 @@ if(figure_setup == "EARISE_BP"):
     marker_end_size = 15
     marker_start_size = 10
     marker_size = 5
-all_colors= ["#ff0000","#000000","#0000ff",\
-             "#00ff00","#007060","#d000d0",\
-             "#d00000","#888888","#ffff00",\
-             "#ff00ff", "#00ffff","#600000",\
-             "#aa0055", "#50ff50", "#ff5050",\
-             "#5050ff", "#505000", "#500050",\
-             "#005050", "#50ff00", "#ff5000"]
 
 
 
-plot_bathymetry=True
-plot_legends=True
-plot_routes=True
-plot_points = True
-start=mp.dates.datetime.datetime(1000,5,5)
-end=mp.dates.datetime.datetime(3030,5,5)
 
 fig=plt.figure(figsize=figure_size)
 plt.clf()
@@ -89,25 +103,26 @@ colors=all_colors[0:len(files_to_plot)]
 
 #TOPOGRAPHY EXPERIMENT
 if plot_bathymetry:
-    topodata = Dataset('iowtopo2_rev03.nc')
+    topodata = Dataset(data_dir+'iowtopo2_rev03.nc')
     
     topoin = topodata.variables['Z_WATER'][:]
     lons = topodata.variables['XT_I'][:]
     lats = topodata.variables['YT_J'][:]
     x=np.tile(lons,(lats.shape[0],1))
     y=np.tile(lats,(lons.shape[0],1)).T
-    bmap.pcolor(x,y,-1*topoin,cmap='bone_r',vmin=0,vmax=bathy_max)
+    bmap.pcolor(x,y,-1*topoin,cmap=cmo.cm.deep,vmin=0,vmax=bathy_max)
     cb=plt.colorbar()
     cb.ax.invert_yaxis()
-
+    cb.set_label('Depth (m)')
 if plot_routes:
-    for f,col,lab in zip(files_to_plot,colors,labels):
-        a=qa.PointData(dir_to_plot+f,1,start,end,"argonc");
-        lon_dat=a.obs['ape']['lon'][~a.obs['ape']['lon'].mask]
-        lat_dat=a.obs['ape']['lat'][~a.obs['ape']['lat'].mask]
-        if(len(lon_dat)==1): #  gludge. Sometimes result is inside a list.
-            lon_dat=lon_dat[0]
-            lat_dat=lat_dat[0]
+    for f,col,lab in zip(files_to_plot,cycle(colors),labels):
+        d=xr.open_dataset(dir_to_plot+f)
+        primaries = ah.get_primary_indices(d)
+        primaries = np.asarray(primaries) & \
+                    np.asarray(d['JULD']>np.datetime64(start)) &\
+                    np.asarray(d['JULD']<np.datetime64(end))
+        lat_dat = np.array(d['LATITUDE'])[primaries]
+        lon_dat = np.array(d['LONGITUDE'])[primaries]
             
         x,y=bmap(lon_dat,lat_dat)
     #    bmap.plot(x,y,color=col,linewidth=2,alpha=0.5)
@@ -123,5 +138,7 @@ if plot_routes:
 if plot_legends:
     #plt.legend(bbox_to_anchor=(1.0,0.5),numpoints=1)
     plt.legend(loc='lower right',numpoints=1,prop={'size': legend_size})
-plt.savefig(figure_name+'.png' ,facecolor='w',dpi=fig_dpi)
-plt.savefig(figure_name+'.eps' ,facecolor='w',dpi=fig_dpi)
+plt.savefig(output_dir+figure_name+'.png' ,\
+            facecolor='w',dpi=fig_dpi,bbox_inches='tight')
+plt.savefig(output_dir+figure_name+'.eps' ,\
+            facecolor='w',dpi=fig_dpi,bbox_inches='tight')
