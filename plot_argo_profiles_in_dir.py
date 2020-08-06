@@ -11,8 +11,6 @@ import re
 import matplotlib as mp
 import matplotlib.pyplot as plt
 import numpy as np
-from mpl_toolkits.basemap import Basemap
-from netCDF4 import Dataset
 import xarray as xr
 import pandas as pd
 import argohelper as ah
@@ -55,8 +53,8 @@ if plot_profile_timelines:
                     np.array(d['JULD'])[primaries],\
                     interp_depths,\
                     np.transpose(interp_data),\
-                    cmap = cmap)
-            ah.give_statistics(dir_to_plot+f)
+                    cmap = cmap,\
+                    shading = 'auto')
             plt.gca().invert_yaxis()
             cbar = plt.colorbar()
             cbar.set_label(ah.axes_label_from_variable_name(var))

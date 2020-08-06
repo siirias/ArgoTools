@@ -7,13 +7,13 @@ Created on Tue Jan 30 10:59:09 2018
 import sys
 #sys.path.insert(0,'D:\\svnfmi_merimallit\\qa\\nemo')
 import datetime as dt
-import calendar
+#import calendar
 import matplotlib as mp
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.io import netcdf
-from mpl_toolkits.basemap import Basemap, shiftgrid, cm
+#from mpl_toolkits.basemap import Basemap, shiftgrid, cm
 #import ModelQATools as qa
 import math
 import gsw
@@ -187,7 +187,7 @@ def split_csv_profiles(pressure, other_vars, invalid_val=-10000000000.000):
             depth=0
         if(result[profile][depth][0]!=invalid_val):
             if(abs(result[profile][depth][0]-pressure[i])>0.1):
-                print "voi kräpylä", result[profile][depth][0]-pressure[i]
+                print("voi kräpylä", result[profile][depth][0]-pressure[i])
         result[profile][depth][0]=pressure[i]
         for j in range(len(other_vars)):
             result[profile][depth][j+1]=other_vars[j][i]
@@ -207,7 +207,7 @@ def is_broken(dat,depth,data_type='salt',qc_flag=None,qc_profs=None,surface_sali
     if(discard_by_flags):
         if(qc_flag is not None):
             if(qc_flag != 'A'):
-                print qc_flag
+                print(qc_flag)
                 return True
 #This version of the checks the QC flags for each measurement point
 #    if(qc_profs is not None):
@@ -236,6 +236,7 @@ def is_broken(dat,depth,data_type='salt',qc_flag=None,qc_profs=None,surface_sali
     return False
 
 def give_statistics(files_to_use = None):
+    #bit deprecated, check rather gather_statistics()
     start=mp.dates.datetime.datetime(1000,5,5)
     end=mp.dates.datetime.datetime(3030,5,5)
     if(not files_to_use):
@@ -243,7 +244,7 @@ def give_statistics(files_to_use = None):
     elif type(files_to_use) == str:
         files_to_use = [files_to_use]
     for filename in files_to_use:
-        print filename,":"
+        print(filename,":")
         argo = netcdf.netcdf_file(filename,'r')
         temp = argo.variables['TEMP_ADJUSTED'][:].copy()
         salt = argo.variables['PSAL_ADJUSTED'][:].copy()
@@ -265,11 +266,11 @@ def give_statistics(files_to_use = None):
             if(min_pres>max(press[i,:])):
                 min_pres=max(press[i,:])
         avg_pres/=float(press.shape[0])
-        print "deployed: {} and recovered: {}".format(str(mp.dates.num2date(time[0])),str(mp.dates.num2date(time[-1])))
-        print "mission time: {}".format(mp.dates.num2date(time[-1])-mp.dates.num2date(time[0]))
-        print "profiles: {}".format(temp.shape[0])
-        print "depth avg:{}, min:{},max:{}".format(avg_pres,min_pres,max_pres)
-        print "-----\n"
+        print("deployed: {} and recovered: {}".format(str(mp.dates.num2date(time[0])),str(mp.dates.num2date(time[-1]))))
+        print("mission time: {}".format(mp.dates.num2date(time[-1])-mp.dates.num2date(time[0])))
+        print("profiles: {}".format(temp.shape[0]))
+        print("depth avg:{}, min:{},max:{}".format(avg_pres,min_pres,max_pres))
+        print("-----\n")
         
 def get_primary_indices(dataset):
     #dataset is netcdffile loaded with xarray .opendataset
@@ -278,7 +279,7 @@ def get_primary_indices(dataset):
     # page 18, this determines the type of profile, only one primary
     #per profile
     sampling_schemes = map(str,sampling_schemes) #convert to strings
-    primaries = map(lambda x:'Primary' in x, sampling_schemes)
+    primaries = list(map(lambda x:'Primary' in x, sampling_schemes))
     #true where primary.
     primaries=np.array(primaries)
     return primaries
@@ -315,3 +316,35 @@ def axes_label_from_variable_name(var_name, give_colormap = False):
         return (axes_label, colormap)
     else:
         return axes_label
+
+def gather_statistics(dataset, filter_bool = slice(None)):
+    stats = {}
+    time = dataset['JULD'][filter_bool]
+    depths = dataset['PRES'][filter_bool]
+    depths = list(map(lambda x: np.max(x), depths))
+    stats['deployment_lat'] = dataset['LATITUDE'][0]
+    stats['deployment_lon'] = dataset['LONGITUDE'][0]
+    stats['wmo'] = str(dataset['PLATFORM_NUMBER'][0].data).strip()
+    stats['type'] = str(dataset['PLATFORM_TYPE'][0].data).strip()
+    stats['time_deployed']=time[0].data
+    stats['time_last_profile']=time[-1].data
+    stats['depth_avg']=np.mean(depths)
+    stats['depth_min']=np.min(depths)
+    stats['depth_max']=np.max(depths)
+    #Bit of gludge, but some hardcoded areas:
+    stats['area'] = "{}-{}".format(stats['deployment_lat'],\
+                                     stats['deployment_lon'])
+    if(stats['deployment_lat']>63.0):
+        stats['area'] = "Bay of Bothnia"
+    elif(stats['deployment_lat']>60.0):
+        stats['area'] = "Bothnian Sea"
+    elif(stats['deployment_lat']>58.0):
+        stats['area'] = "N.Baltic Proper"
+    elif(stats['deployment_lat']>56.3):
+        stats['area'] = "Baltic Proper"
+    elif(stats['deployment_lon']>17.3):
+        stats['area'] = "Gdansk Basin"
+    elif(stats['deployment_lon']<17.3):
+        stats['area'] = "Bornholm Basin"
+    
+    return stats
