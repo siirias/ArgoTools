@@ -17,7 +17,7 @@ import argohelper as ah
 import cmocean as cmo
 
 
-dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\"
+dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\AllFinnish\\"
 #dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\Cape\\"
 output_dir = "D:\\Data\\ArgoData\\Figures\\"
 figure_setup = "EARISE_BP"

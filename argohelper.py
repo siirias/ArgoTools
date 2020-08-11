@@ -18,6 +18,7 @@ from scipy.io import netcdf
 import math
 import gsw
 import cmocean 
+import re
 ctd_data_file='./Siiriaetal2017/0316544c.csv'
 
 file_names = ['6902014_20161123144244280.nc',
@@ -324,13 +325,22 @@ def gather_statistics(dataset, filter_bool = slice(None)):
     depths = list(map(lambda x: np.max(x), depths))
     stats['deployment_lat'] = dataset['LATITUDE'][0]
     stats['deployment_lon'] = dataset['LONGITUDE'][0]
-    stats['wmo'] = str(dataset['PLATFORM_NUMBER'][0].data).strip()
-    stats['type'] = str(dataset['PLATFORM_TYPE'][0].data).strip()
-    stats['time_deployed']=time[0].data
-    stats['time_last_profile']=time[-1].data
+    stats['wmo'] = str(int(dataset['PLATFORM_NUMBER'][0].data))
+    stats['type'] = \
+        re.search("'(.*)'",\
+        str(dataset['PLATFORM_TYPE'][0].data)).groups()[0].strip()
+        #This is an awful gludge, but couldn't get the string out outherways...
+    
+    stats['time_deployed']=pd.to_datetime(time[0].data)
+    stats['time_last_profile']=pd.to_datetime(time[-1].data)
     stats['depth_avg']=np.mean(depths)
     stats['depth_min']=np.min(depths)
     stats['depth_max']=np.max(depths)
+    times_between = np.array(list(\
+                    map(lambda x: float(x),np.diff(time))))/\
+                    (1000000000.0*60.0*60.0) # from ns to hours
+    stats['times_between']=times_between
+    
     #Bit of gludge, but some hardcoded areas:
     stats['area'] = "{}-{}".format(stats['deployment_lat'],\
                                      stats['deployment_lon'])

@@ -20,8 +20,9 @@ from itertools import cycle
 dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise\\" #default value
 output_dir = "D:\\Data\\ArgoData\\Figures\\"
 data_dir = "D:\\Data\\ArgoData\\"  # mainly for topography data
-figure_setup = "FullBalticEAR" #May change dir_to_plot
+figure_setup = "EARISE_BP" #May change dir_to_plot
 figure_name="ArgoPlot"
+plot_contours = False  # default. specific etups may change this
 fig_dpi = 300
 line_width = 1.2  #0.7
 line_alpha = 0.8
@@ -31,6 +32,7 @@ marker_size = 5
 legend_size = 10
 label_step = 2.0
 bathy_max = 300 # meters
+replace_labels = {}
 all_colors= ["#ff0000","#000000","#0000ff",\
              "#00ff00","#007060","#d000d0",\
              "#d00000","#888888","#ffff00",\
@@ -72,13 +74,17 @@ if(figure_setup == "Bothnian Sea"):
     lon_min=17;lat_min=60;lon_max=22;lat_max=63;
 if(figure_setup == "EARISE_BP"):
     figure_name="EuroArgoRISE"
-    lon_min=19.7;lat_min=58.8;lon_max=20.5;lat_max=59.15;
+    dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\" 
+    lon_min=19.0;lat_min=58.3;lon_max=21.2;lat_max=59.2;
+    plot_contours = True
+    replace_labels = {'6903703':'ARVOR-I(6903703)',\
+                      '6903704':'APEX(6903704)'}
     figure_size=(10,5)
     line_alpha=0.5
-    label_step = 0.1
+    label_step = 0.2
     bathy_max = 200.0
-    marker_end_size = 15
-    marker_start_size = 10
+    marker_end_size = 7
+    marker_start_size = 5
     marker_size = 5
 
 
@@ -110,12 +116,18 @@ if plot_bathymetry:
     lats = topodata.variables['YT_J'][:]
     x=np.tile(lons,(lats.shape[0],1))
     y=np.tile(lats,(lons.shape[0],1)).T
+    if plot_contours:
+        cn = bmap.contour(x,y,-1*topoin,colors='k',vmin=0,vmax=bathy_max, alpha=0.3)
+        plt.clabel(cn,fmt='%1.0f')
     bmap.pcolor(x,y,-1*topoin,cmap=cmo.cm.deep,vmin=0,vmax=bathy_max)
     cb=plt.colorbar()
     cb.ax.invert_yaxis()
     cb.set_label('Depth (m)')
 if plot_routes:
-    for f,col,lab in zip(files_to_plot,cycle(colors),labels):
+    for f,col,label in zip(files_to_plot,cycle(colors),labels):
+        lab = label
+        if(lab in replace_labels.keys()):
+            lab = replace_labels[lab]  #some image setups want specific labels
         d=xr.open_dataset(dir_to_plot+f)
         primaries = ah.get_primary_indices(d)
         primaries = np.asarray(primaries) & \

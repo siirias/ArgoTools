@@ -5,6 +5,20 @@ Created on Fri May 22 12:04:54 2020
 @author: siirias
 short script meant to convert apex raw data files into
 pandas dataframe
+
+The columns for the VITALS_CORE rows are from left to right:
+• Time stamp in UTC (YYYYMMDDTHHMMSS)
+• Air bladder pressure in decibars
+• Air bladder pressure in counts
+• Battery voltage in volts
+• Battery voltage in counts
+• Humidity in percent relative
+• Leak detect voltage in volts
+• Internal vacuum pressure in decibars
+• Internal vacuum pressure in counts
+• Coulomb counter in ampere hours
+• Battery current draw in milliamperes
+• Battery current raw in milliamperes
 """
 import re
 import numpy as np
