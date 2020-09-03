@@ -20,7 +20,8 @@ from itertools import cycle
 dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise\\" #default value
 output_dir = "D:\\Data\\ArgoData\\Figures\\"
 data_dir = "D:\\Data\\ArgoData\\"  # mainly for topography data
-figure_setup = "EARISE_BP" #May change dir_to_plot
+figure_setup ="GotlandD"  #"EARISE_BP" #May change dir_to_plot
+#figure_setup ="Bothnian Sea"  #"EARISE_BP" #May change dir_to_plot
 figure_name="ArgoPlot"
 plot_contours = False  # default. specific etups may change this
 fig_dpi = 300
@@ -44,8 +45,9 @@ plot_bathymetry=True
 plot_legends=True
 plot_routes=True
 plot_points = True
-start=mp.dates.datetime.datetime(1800,5,5)
+start=mp.dates.datetime.datetime(2000,3,1)
 end=mp.dates.datetime.datetime(2230,5,5)
+figure_size=(10,5)  #default value!
 
 if( figure_setup == "GoB"):
     figure_name = "Gulf of Bothnia"
@@ -69,9 +71,24 @@ if(figure_setup == "AllFinnish"):
     figure_size=(12,10)
     dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\AllFinnish\\"
 if(figure_setup == "GotlandD"):
-    lon_min=18;lat_min=55;lon_max=21;lat_max=59;
+    lon_min=18;lat_min=56;lon_max=21;lat_max=59;
+    start=mp.dates.datetime.datetime(2018,3,1)
+    end=mp.dates.datetime.datetime(2230,5,5)
+    figure_size=(5,5)  #default value!
+    figure_name="FMIGotlandDeep"
+    dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\GotlandDeep\\"
 if(figure_setup == "Bothnian Sea"):
+    start=mp.dates.datetime.datetime(2019,3,1)
+    end=mp.dates.datetime.datetime(2230,5,5)
+    figure_name="FMIBothnianSea"
+    dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\BothnianSea\\"
     lon_min=17;lat_min=60;lon_max=22;lat_max=63;
+if(figure_setup == "Bay of Bothnia"):
+    start=mp.dates.datetime.datetime(2000,3,1)
+    end=mp.dates.datetime.datetime(2230,5,5)
+    figure_name="FMIBothnianBay"
+    dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\BayOfBothnia\\"
+    lon_min=20;lat_min=64;lon_max=26;lat_max=66;
 if(figure_setup == "EARISE_BP"):
     figure_name="EuroArgoRISE"
     dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\" 
@@ -123,8 +140,11 @@ if plot_bathymetry:
     cb=plt.colorbar()
     cb.ax.invert_yaxis()
     cb.set_label('Depth (m)')
+color_stack = colors.copy()
 if plot_routes:
-    for f,col,label in zip(files_to_plot,cycle(colors),labels):
+    for f,label in zip(files_to_plot,labels):
+        if(len(color_stack)==0):
+            color_stack = colors.copy()
         lab = label
         if(lab in replace_labels.keys()):
             lab = replace_labels[lab]  #some image setups want specific labels
@@ -138,11 +158,13 @@ if plot_routes:
             
         x,y=bmap(lon_dat,lat_dat)
     #    bmap.plot(x,y,color=col,linewidth=2,alpha=0.5)
-        bmap.plot(x,y,color=col,linewidth=line_width, alpha=line_alpha)
-        bmap.plot(x[-1],y[-1],'x',color=col,markersize=marker_end_size,alpha=1.0)
-        bmap.plot(x[0],y[0],'o',color=col,markersize=marker_start_size,alpha=1.0,label=lab)
-        if(plot_points):
-            bmap.plot(x,y,'.',color=col,markersize=marker_size,alpha=1.0)
+        if(len(x)>0):
+            col = color_stack.pop(0)
+            bmap.plot(x,y,color=col,linewidth=line_width, alpha=line_alpha)
+            bmap.plot(x[-1],y[-1],'x',color=col,markersize=marker_end_size,alpha=1.0)
+            bmap.plot(x[0],y[0],'o',color=col,markersize=marker_start_size,alpha=1.0,label=lab)
+            if(plot_points):
+                bmap.plot(x,y,'.',color=col,markersize=marker_size,alpha=1.0)
             
     #    print lab, mp.dates.num2date(a.obs['ape']['date'][0]).date() \
     #             , mp.dates.num2date(a.obs['ape']['date'][-1]).date()

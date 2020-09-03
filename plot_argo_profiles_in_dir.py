@@ -17,7 +17,7 @@ import argohelper as ah
 import cmocean as cmo
 
 
-dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\AllFinnish\\"
+dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\GotlandDeep\\"
 #dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\Cape\\"
 output_dir = "D:\\Data\\ArgoData\\Figures\\"
 figure_setup = "EARISE_BP"
@@ -39,7 +39,7 @@ if plot_profile_timelines:
     for f in files_to_plot:
         for var in variables:
             fig=plt.figure(figsize=figure_size)
-            float_name = re.search("(\d*)_",f).groups()[0]
+            float_name = re.search("(\d{7})",f).groups()[0]
             plt.clf()
             cmap = ah.axes_label_from_variable_name(var, give_colormap=True)[1]            
             d=xr.open_dataset(dir_to_plot+f)
@@ -70,7 +70,7 @@ if plot_profile_timelines:
 if plot_profile_clusters:
     for f in files_to_plot:
         for var in variables:
-            float_name = re.search("(\d*)_",f).groups()[0]
+            float_name = re.search("(\d{7})",f).groups()[0]
             fig=plt.figure(figsize=figure_size)
             plt.clf()
             d=xr.open_dataset(dir_to_plot+f)

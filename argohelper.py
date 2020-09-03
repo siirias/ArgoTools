@@ -323,14 +323,41 @@ def gather_statistics(dataset, filter_bool = slice(None)):
     time = dataset['JULD'][filter_bool]
     depths = dataset['PRES'][filter_bool]
     depths = list(map(lambda x: np.max(x), depths))
-    stats['deployment_lat'] = dataset['LATITUDE'][0]
-    stats['deployment_lon'] = dataset['LONGITUDE'][0]
+    stats['deployment_lat'] = float(dataset['LATITUDE'][0])
+    stats['deployment_lon'] = float(dataset['LONGITUDE'][0])
+    distances_total = []
+    distances_last = []
+    prev_lat = stats['deployment_lat']
+    prev_lon = stats['deployment_lon']
+    for lat,lon in zip(dataset['LATITUDE'][filter_bool], \
+                       dataset['LONGITUDE'][filter_bool]):
+        distances_total.append(\
+            distance([stats['deployment_lat'],stats['deployment_lon']],\
+                     [lat,lon]))
+        distances_last.append(\
+            distance([prev_lat,prev_lon],\
+                     [lat,lon]))
+        prev_lat = lat
+        prev_lon = lon
+    stats['distance_from_origin'] = distances_total
+    stats['distance_since_last'] = distances_last
     stats['wmo'] = str(int(dataset['PLATFORM_NUMBER'][0].data))
+    
+    stats['serial'] = \
+        re.search("'(.*)'",\
+        str(dataset['FLOAT_SERIAL_NO'][0].data)).groups()[0].strip()
     stats['type'] = \
         re.search("'(.*)'",\
         str(dataset['PLATFORM_TYPE'][0].data)).groups()[0].strip()
         #This is an awful gludge, but couldn't get the string out outherways...
     
+    #even more horrible gludge, to get the sensors:
+    tmp_main = map(str,dataset['PARAMETER'][0,0,:].data)
+    tmp = list(tmp_main)+list(map(str,dataset['PARAMETER'][1,0,:].data))
+    tmp = list(map(lambda x: re.search("'(.*)'",x).groups()[0].strip(),tmp))
+    tmp = [x for x in tmp if len(x)>0]
+    stats['sensors'] = "-".join(set(tmp))  # set removes dublicates
+
     stats['time_deployed']=pd.to_datetime(time[0].data)
     stats['time_last_profile']=pd.to_datetime(time[-1].data)
     stats['depth_avg']=np.mean(depths)
@@ -344,7 +371,9 @@ def gather_statistics(dataset, filter_bool = slice(None)):
     #Bit of gludge, but some hardcoded areas:
     stats['area'] = "{}-{}".format(stats['deployment_lat'],\
                                      stats['deployment_lon'])
-    if(stats['deployment_lat']>63.0):
+    if(stats['deployment_lat']>65.0):
+        stats['area'] = "Barents Sea"
+    elif(stats['deployment_lat']>63.0):
         stats['area'] = "Bay of Bothnia"
     elif(stats['deployment_lat']>60.0):
         stats['area'] = "Bothnian Sea"
@@ -356,5 +385,31 @@ def gather_statistics(dataset, filter_bool = slice(None)):
         stats['area'] = "Gdansk Basin"
     elif(stats['deployment_lon']<17.3):
         stats['area'] = "Bornholm Basin"
+    
+    #Another gludge to attach nicknames for floats
+    nicknames = {\
+                 '023-3119':'EAR-2',\
+                 'AC0300-19FI001':'',\
+                 'AI2600-18FI001':'Arvo1',\
+                 'AI2600-19FI001':'EAR-1',\
+                 '023-3119':'',\
+                 '6710':'BAPE2',\
+                 '6711':'BAPE1',\
+                 '7191':'BAPE3',\
+                 '7958':'HAPE1',\
+                 '7959':'PAPE1',\
+                 '5088':'APE1',\
+                 '5396':'APE2',\
+                 '5397':'APE1',\
+                 '8540':'BAPE3',\
+                 '8541':'HAPE2',\
+                 '8543':'PAPE3',\
+                 '8348':'CAPE1',\
+                 '9568':'BAPE3',\
+                 }
+    stats['nickname'] = '-'
+    if stats['serial'] in nicknames.keys():
+        stats['nickname'] = nicknames[stats['serial']]
+        
     
     return stats
