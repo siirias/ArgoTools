@@ -20,7 +20,7 @@ from itertools import cycle
 dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise\\" #default value
 output_dir = "D:\\Data\\ArgoData\\Figures\\"
 data_dir = "D:\\Data\\ArgoData\\"  # mainly for topography data
-figure_setup ="GotlandD"  #"EARISE_BP" #May change dir_to_plot
+figure_setup = "EARISE_BP" #"EARISE_BP" "GotlandD"#May change dir_to_plot
 #figure_setup ="Bothnian Sea"  #"EARISE_BP" #May change dir_to_plot
 figure_name="ArgoPlot"
 plot_contours = False  # default. specific etups may change this

@@ -45,6 +45,9 @@ for c_f in created_files:
     new_name = float_name+"_"+process_stamp+"_"+c_f
     shutil.move(os.path.join(tmp_dir,c_f), \
                 os.path.join(extract_dir,new_name))
+    #make a copy ending with  .txt
+    shutil.copy(os.path.join(extract_dir,new_name),\
+                os.path.join(extract_dir,re.sub('\.csv','.txt',new_name)))
         
 for f in files_to_process:
     shutil.move(os.path.join(tmp_dir,f),\
