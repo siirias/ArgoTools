@@ -10,7 +10,10 @@ import re
 import matplotlib as mp
 import matplotlib.pyplot as plt
 import numpy as np
-from mpl_toolkits.basemap import Basemap
+#from mpl_toolkits.basemap import Basemap
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+
 from netCDF4 import Dataset
 import xarray as xr
 import argohelper as ah
@@ -20,7 +23,7 @@ from itertools import cycle
 dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\" #default value
 output_dir = "D:\\Data\\ArgoData\\Figures\\"
 data_dir = "D:\\Data\\ArgoData\\"  # mainly for topography data
-figure_setup = "GoB"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
+figure_setup = "GotlandD"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
 #figure_setup ="Bothnian Sea"  #"EARISE_BP" #May change dir_to_plot
 figure_name="ArgoPlot"
 plot_contours = False  # default. specific etups may change this
@@ -50,7 +53,7 @@ end=mp.dates.datetime.datetime(2230,5,5)
 figure_size=(10,5)  #default value!
 
 if( figure_setup == "GoB"):
-    dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\GotlandDeep\\"
+    dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\BothnianSea\\"
     figure_name = "Gulf of Bothnia"
     lon_min=17;lat_min=60;lon_max=26;lat_max=66;
     figure_size=(10,10)
@@ -132,13 +135,23 @@ if(figure_setup == "EARISE_BP"):
 
 fig=plt.figure(figsize=figure_size)
 plt.clf()
-bmap = Basemap(llcrnrlon=lon_min,llcrnrlat=lat_min,urcrnrlon=lon_max,urcrnrlat=lat_max, \
-resolution = 'i',fix_aspect=False)
+#bmap = Basemap(llcrnrlon=lon_min,llcrnrlat=lat_min,urcrnrlon=lon_max,urcrnrlat=lat_max, \
+#resolution = 'i',fix_aspect=False)
+the_proj = ccrs.PlateCarree()
+ax = plt.axes(projection=the_proj)
+ax.set_extent([lon_min,lon_max,lat_min,lat_max])
+ax.set_aspect('auto')
+ax.coastlines('10m')
+ax.add_feature(cfeature.NaturalEarthFeature('physical', 'land', '10m',\
+                                        edgecolor='face', facecolor='#555570'))
+gl = ax.gridlines(crs=the_proj, draw_labels=True,
+          linewidth=2, color='gray', alpha=0.3, linestyle='-')
 
-bmap.drawcoastlines(linewidth=0.5)
-bmap.fillcontinents()
-bmap.drawparallels(np.arange(50.,69,label_step),labels=[1,0,0,0],linewidth=0,dashes=[5,10])
-bmap.drawmeridians(np.arange(12.,30,label_step),labels=[0,0,0,1],linewidth=0,dashes=[5,10])
+
+#bmap.drawcoastlines(linewidth=0.5)
+#bmap.fillcontinents()
+#bmap.drawparallels(np.arange(50.,69,label_step),labels=[1,0,0,0],linewidth=0,dashes=[5,10])
+#bmap.drawmeridians(np.arange(12.,30,label_step),labels=[0,0,0,1],linewidth=0,dashes=[5,10])
 
 
 
@@ -157,9 +170,13 @@ if plot_bathymetry:
     x=np.tile(lons,(lats.shape[0],1))
     y=np.tile(lats,(lons.shape[0],1)).T
     if plot_contours:
-        cn = bmap.contour(x,y,-1*topoin,colors='k',vmin=0,vmax=bathy_max, alpha=0.3)
+#        cn = bmap.contour(x,y,-1*topoin,colors='k',vmin=0,vmax=bathy_max, alpha=0.3)
+        cn = plt.contour(x,y,-1*topoin,colors='k',vmin=0,vmax=bathy_max,\
+                         alpha=0.3,transform = ccrs.PlateCarree())
         plt.clabel(cn,fmt='%1.0f')
-    bmap.pcolor(x,y,-1*topoin,cmap=cmo.cm.deep,vmin=0,vmax=bathy_max)
+#    bmap.pcolor(x,y,-1*topoin,cmap=cmo.cm.deep,vmin=0,vmax=bathy_max)
+    plt.pcolor(x,y,-1*topoin,cmap=cmo.cm.deep,vmin=0,\
+               vmax=bathy_max, transform = ccrs.PlateCarree())
     cb=plt.colorbar()
     cb.ax.invert_yaxis()
     cb.set_label('Depth (m)')
@@ -179,15 +196,24 @@ if plot_routes:
         lat_dat = np.array(d['LATITUDE'])[primaries]
         lon_dat = np.array(d['LONGITUDE'])[primaries]
             
-        x,y=bmap(lon_dat,lat_dat)
+#        x,y=bmap(lon_dat,lat_dat)
     #    bmap.plot(x,y,color=col,linewidth=2,alpha=0.5)
-        if(len(x)>0):
+        if(len(lon_dat)>0):
             col = color_stack.pop(0)
-            bmap.plot(x,y,color=col,linewidth=line_width, alpha=line_alpha)
-            bmap.plot(x[-1],y[-1],'x',color=col,markersize=marker_end_size,alpha=1.0)
-            bmap.plot(x[0],y[0],'o',color=col,markersize=marker_start_size,alpha=1.0,label=lab)
+#            bmap.plot(x,y,color=col,linewidth=line_width, alpha=line_alpha)
+#            bmap.plot(x[-1],y[-1],'x',color=col,markersize=marker_end_size,alpha=1.0)
+#            bmap.plot(x[0],y[0],'o',color=col,markersize=marker_start_size,alpha=1.0,label=lab)
+#            if(plot_points):
+#                bmap.plot(x,y,'.',color=col,markersize=marker_size,alpha=line_alpha)
+            plt.plot(lon_dat,lat_dat,color=col,linewidth=line_width, alpha=line_alpha,\
+                     transform = ccrs.PlateCarree())
+            plt.plot(lon_dat[-1],lat_dat[-1],'x',color=col,markersize=marker_end_size,\
+                     alpha=1.0, transform = ccrs.PlateCarree())
+            plt.plot(lon_dat[0],lat_dat[0],'o',color=col,markersize=marker_start_size,\
+                     alpha=1.0,label=lab, transform = ccrs.PlateCarree())
             if(plot_points):
-                bmap.plot(x,y,'.',color=col,markersize=marker_size,alpha=line_alpha)
+                plt.plot(lon_dat,lat_dat,'.',color=col,markersize=marker_size,\
+                         alpha=line_alpha, transform = ccrs.PlateCarree())
             print(lon_dat[-1],lat_dat[-1], lab)
     #    print lab, mp.dates.num2date(a.obs['ape']['date'][0]).date() \
     #             , mp.dates.num2date(a.obs['ape']['date'][-1]).date()
