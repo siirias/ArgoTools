@@ -15,7 +15,8 @@ import argohelper as ah
 import datetime as dt
 
 #dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\GotlandDeep\\"
-dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\"
+#dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\"
+dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\BothnianSea\\"
 #dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\AllFinnish\\"
 #dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\Cape\\"
 output_dir = "D:\\Data\\ArgoData\\Figures\\"
@@ -64,6 +65,7 @@ for f in files_to_print:
     file_out.write(txt)
     if (print_extras):
         txt=[]
+        txt.append("====={}=====".format(float_name))
         txt.append("Max distance: {:.1f} km, max jump between profiles: {:.1f} km".\
               format(np.nanmax(stats['distance_from_origin']),\
                      np.nanmax(stats['distance_since_last'])))
@@ -71,17 +73,20 @@ for f in files_to_print:
               format(np.nanmedian(stats['distance_since_last'])))
         txt.append("Diving depth, max: {:.1f} m, mean: {:.1f} m, min: {:.1f} m".\
               format(stats['depth_max'], stats['depth_avg'], stats['depth_min'], ))
-        for i,j,cn, d_tot, d_last in zip(d['JULD'][primaries],\
+        for i,j,cn, d_tot, d_last, this_lat,this_lon in zip(d['JULD'][primaries],\
                           stats['times_between'],\
                           d['CYCLE_NUMBER'][primaries],\
                           stats['distance_from_origin'],\
-                          stats['distance_since_last']):
+                          stats['distance_since_last'],\
+                          d['LATITUDE'][primaries],\
+                          d['LONGITUDE'][primaries]):
             txt.append(\
-             "cycle: {},\t{}\tdiff:{:.1f} hours ({:.1f} days) Travelled:{:.1f}(d:{:.1f})".format(\
+             "cycle: {},\t{}\tdiff:{:.1f} hours ({:.1f} days) Travelled:{:.1f}(d:{:.1f}) lat:{:.3f} lon:{:.3f}".format(\
                       cn.data,\
                       pd.to_datetime(i.data).strftime("%Y-%m-%d %H.%M"),\
                       j,j/24.0,\
-                      d_tot,d_last))
+                      d_tot,d_last,\
+                      float(this_lat),float(this_lon)))
         for t in txt:
             print(t)
             if(print_extras_to_file):

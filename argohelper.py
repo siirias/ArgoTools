@@ -366,7 +366,7 @@ def gather_statistics(dataset, filter_bool = slice(None)):
     times_between = np.array(list(\
                     map(lambda x: float(x),np.diff(time))))/\
                     (1000000000.0*60.0*60.0) # from ns to hours
-    stats['times_between']=times_between
+    stats['times_between']=np.array([0]+list(times_between))
     
     #Bit of gludge, but some hardcoded areas:
     stats['area'] = "{}-{}".format(stats['deployment_lat'],\

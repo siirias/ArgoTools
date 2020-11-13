@@ -17,10 +17,10 @@ import argohelper as ah
 import cmocean as cmo
 from itertools import cycle
 
-dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise\\" #default value
+dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\" #default value
 output_dir = "D:\\Data\\ArgoData\\Figures\\"
 data_dir = "D:\\Data\\ArgoData\\"  # mainly for topography data
-figure_setup = "EARISE_BP" #"EARISE_BP" "GotlandD"#May change dir_to_plot
+figure_setup = "GoB"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
 #figure_setup ="Bothnian Sea"  #"EARISE_BP" #May change dir_to_plot
 figure_name="ArgoPlot"
 plot_contours = False  # default. specific etups may change this
@@ -50,12 +50,15 @@ end=mp.dates.datetime.datetime(2230,5,5)
 figure_size=(10,5)  #default value!
 
 if( figure_setup == "GoB"):
+    dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\GotlandDeep\\"
     figure_name = "Gulf of Bothnia"
     lon_min=17;lat_min=60;lon_max=26;lat_max=66;
     figure_size=(10,10)
+    
 if(figure_setup == "FullBaltic"):
     lon_min=16;lat_min=53;lon_max=30.5;lat_max=66;
     figure_size=(8,10)
+    
 if(figure_setup == "FullBalticEAR"):
     dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise\\" 
     line_alpha = 0.4
@@ -65,11 +68,13 @@ if(figure_setup == "FullBalticEAR"):
     lon_min=10;lat_min=53;lon_max=30.5;lat_max=66;
     figure_size=(12,10)
     all_colors = ['#000000']
+                  
 if(figure_setup == "AllFinnish"):
     lon_min=10;lat_min=53;lon_max=30.5;lat_max=66;
     figure_name = 'AllFinnishFloats'
     figure_size=(12,10)
     dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\AllFinnish\\"
+    
 if(figure_setup == "GotlandD"):
     lon_min=18;lat_min=56;lon_max=21;lat_max=59;
     start=mp.dates.datetime.datetime(2018,3,1)
@@ -77,18 +82,36 @@ if(figure_setup == "GotlandD"):
     figure_size=(5,5)  #default value!
     figure_name="FMIGotlandDeep"
     dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\GotlandDeep\\"
+    
 if(figure_setup == "Bothnian Sea"):
     start=mp.dates.datetime.datetime(2019,3,1)
     end=mp.dates.datetime.datetime(2230,5,5)
     figure_name="FMIBothnianSea"
     dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\BothnianSea\\"
     lon_min=17;lat_min=60;lon_max=22;lat_max=63;
+    
+if(figure_setup == "Bothnian Sea Aranda"):
+    start=mp.dates.datetime.datetime(2019,3,1)
+    end=mp.dates.datetime.datetime(2230,5,5)
+    figure_name="FMIBothnianSeaAranda"
+    dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\BothnianSea\\"
+    lon_min=19;lat_min=61;lon_max=22;lat_max=63;
+    plot_contours = True
+    figure_size=(10,10)
+    line_alpha=0.5
+    label_step = 0.4
+    bathy_max = 200.0
+    marker_end_size = 7
+    marker_start_size = 5
+    marker_size = 5
+
 if(figure_setup == "Bay of Bothnia"):
     start=mp.dates.datetime.datetime(2000,3,1)
     end=mp.dates.datetime.datetime(2230,5,5)
     figure_name="FMIBothnianBay"
     dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\BayOfBothnia\\"
     lon_min=20;lat_min=64;lon_max=26;lat_max=66;
+    
 if(figure_setup == "EARISE_BP"):
     figure_name="EuroArgoRISE"
     dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\" 
@@ -97,10 +120,10 @@ if(figure_setup == "EARISE_BP"):
     replace_labels = {'6903703':'ARVOR-I(6903703)',\
                       '6903704':'APEX(6903704)'}
     figure_size=(10,5)
-    line_alpha=0.5
+    line_alpha=0.3
     label_step = 0.2
     bathy_max = 200.0
-    marker_end_size = 7
+    marker_end_size = 10
     marker_start_size = 5
     marker_size = 5
 
@@ -140,11 +163,11 @@ if plot_bathymetry:
     cb=plt.colorbar()
     cb.ax.invert_yaxis()
     cb.set_label('Depth (m)')
-color_stack = colors.copy()
+color_stack = colors[:]
 if plot_routes:
     for f,label in zip(files_to_plot,labels):
         if(len(color_stack)==0):
-            color_stack = colors.copy()
+            color_stack = colors[:]
         lab = label
         if(lab in replace_labels.keys()):
             lab = replace_labels[lab]  #some image setups want specific labels
@@ -164,8 +187,8 @@ if plot_routes:
             bmap.plot(x[-1],y[-1],'x',color=col,markersize=marker_end_size,alpha=1.0)
             bmap.plot(x[0],y[0],'o',color=col,markersize=marker_start_size,alpha=1.0,label=lab)
             if(plot_points):
-                bmap.plot(x,y,'.',color=col,markersize=marker_size,alpha=1.0)
-            
+                bmap.plot(x,y,'.',color=col,markersize=marker_size,alpha=line_alpha)
+            print(lon_dat[-1],lat_dat[-1], lab)
     #    print lab, mp.dates.num2date(a.obs['ape']['date'][0]).date() \
     #             , mp.dates.num2date(a.obs['ape']['date'][-1]).date()
 
