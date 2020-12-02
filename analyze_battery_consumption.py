@@ -25,7 +25,10 @@ the_func = lambda x,a,b: (15.0-13.5)*np.exp(b*(x-a))+13.5
 
 show_trigger_voltage = True
 presumed_max_voltage = 15.0
-trigger_voltage = 13.5
+default_trigger_voltage = 13.5
+trigger_drop = 1.5  # V another approach for limiting study. 
+                    # This indicates how much drop from original voltage,
+                    # after which the series is cut and analyzed
 
 base_colors = [(1.0,0.0,0.0),   (0.0,1.0,0.0),  (0.0,0.0,1.0),
                (0.8,0.2,0.2),   (0.2,0.8,0.2),  (0.2,0.2,0.8),
@@ -267,7 +270,6 @@ for f_s in float_sets:
         f_s['total_control_actions'] = np.array(total_control_actions)
         f_s['control_actions'] = np.array(control_actions)
         f_s['bottom_contacts'] = np.array(bottom_contacts)
-    f_s['trigger_index'] = np.argmin(np.abs(f_s['voltages']-trigger_voltage))
     print("{};{};{};{};{};{};{:.1f};{:.1f};{:.1f};{}".format(\
           f_s['wmo'], f_s['sensors'], f_s['type'],\
           dt.datetime.strftime(f_s['dates'][0],'%Y-%m-%d'),\
@@ -280,6 +282,8 @@ for f_s in float_sets:
 
 for i in float_sets:
     i['voltages_perc'] = i['voltages']/i['voltages'].max()
+    i['trigger_v'] = i['voltages'].max() - trigger_drop
+    i['trigger_index'] = np.argmin(np.abs(i['voltages']-i['trigger_v']))
     i['fit']= {}
     for xfield in ['travelled_depth', 'lifetime', 'cycles', 'total_control_steps', 'total_control_actions']:
         limit = i['voltages']>13.5
@@ -434,15 +438,18 @@ for ft in figure_types:
                                   linewidth = lw, color = set_color,\
                                   alpha = 0.25, marker = the_mark )
             if(show_trigger_voltage and ft['yfield'] =='voltages_perc'):
-                plt.axhline(trigger_voltage/i['voltages'].max(),\
+                plt.axhline(i['trigger_v']/i['voltages'].max(),\
+                            color = set_color, alpha = 0.99)
+            if(show_trigger_voltage and ft['yfield'] =='voltages'):
+                plt.axhline(i['trigger_v'],\
                             color = set_color, alpha = 0.99)
         else:
             print("Different format: {}".format(i['n']))
     if(show_trigger_voltage):
         if(ft['yfield'] =='voltages'):
-            plt.axhline(trigger_voltage,color = (0.5,0.5,0.5))
+            plt.axhline(default_trigger_voltage,color = (0.5,0.5,0.5))
         if(ft['yfield'] =='voltages_perc'):
-            plt.axhline(trigger_voltage/presumed_max_voltage,color = (0.5,0.5,0.5))
+            plt.axhline(default_trigger_voltage/presumed_max_voltage,color = (0.5,0.5,0.5))
             
     plt.legend()
     plt.ylabel(ft['ylabel'])
@@ -480,7 +487,7 @@ scatter_plot_types = [
      'xfield':'mean_profile_depth',
      'yfield':'mean_days_per_profile',
      'zfield':'lifetime',
-     'zlabel':'Days before trigger voltage ({})'.format(trigger_voltage),
+     'zlabel':'Days before trigger voltage drop (-{})'.format(trigger_drop),
      'cmap':cmo.cm.thermal},
 
     {'title':'Mission days (until Vt) depth_steps',
@@ -489,7 +496,7 @@ scatter_plot_types = [
      'xfield':'mean_profile_depth',
      'yfield':'mean_control_step_per_profile',
      'zfield':'lifetime',
-     'zlabel':'Days before trigger voltage ({})'.format(trigger_voltage),
+     'zlabel':'Days before trigger voltage drop (-{})'.format(trigger_drop),
      'cmap':cmo.cm.thermal},
 
     {'title':'Mission days (until Vt) depth_contacts',
@@ -498,7 +505,7 @@ scatter_plot_types = [
      'xfield':'mean_profile_depth',
      'yfield':'contact_fraction',
      'zfield':'lifetime',
-     'zlabel':'Days before trigger voltage ({})'.format(trigger_voltage),
+     'zlabel':'Days before trigger voltage drop (-{})'.format(trigger_drop),
      'cmap':cmo.cm.thermal},
 
     {'title':'Mission days (until Vt) steps_contacts',
@@ -507,7 +514,7 @@ scatter_plot_types = [
      'xfield':'mean_control_step_per_profile',
      'yfield':'contact_fraction',
      'zfield':'lifetime',
-     'zlabel':'Days before trigger voltage ({})'.format(trigger_voltage),
+     'zlabel':'Days before trigger voltage drop (-{})'.format(trigger_drop),
      'cmap':cmo.cm.thermal},
 
 
@@ -518,7 +525,7 @@ scatter_plot_types = [
      'xfield':'mean_profile_depth',
      'yfield':'mean_days_per_profile',
      'zfield':'cycles',
-     'zlabel':'Profiles before trigger voltage ({})'.format(trigger_voltage),
+     'zlabel':'Profiles before trigger voltage drop (-{})'.format(trigger_drop),
      'cmap':cmo.cm.solar},
 
     {'title':'Profiles (until Vt) depth_steps',
@@ -527,7 +534,7 @@ scatter_plot_types = [
      'xfield':'mean_profile_depth',
      'yfield':'mean_control_step_per_profile',
      'zfield':'cycles',
-     'zlabel':'Profiles before trigger voltage ({})'.format(trigger_voltage),
+     'zlabel':'Profiles before trigger voltage drop (-{})'.format(trigger_drop),
      'cmap':cmo.cm.solar},
 
     {'title':'Profiles (until Vt) depth_contacts',
@@ -536,7 +543,7 @@ scatter_plot_types = [
      'xfield':'mean_profile_depth',
      'yfield':'contact_fraction',
      'zfield':'cycles',
-     'zlabel':'Profiles before trigger voltage ({})'.format(trigger_voltage),
+     'zlabel':'Profiles before trigger voltage drop (-{})'.format(trigger_drop),
      'cmap':cmo.cm.solar},
 
     {'title':'Profiles (until Vt) steps_contacts',
@@ -545,7 +552,7 @@ scatter_plot_types = [
      'xfield':'mean_control_step_per_profile',
      'yfield':'contact_fraction',
      'zfield':'cycles',
-     'zlabel':'Profiles before trigger voltage ({})'.format(trigger_voltage),
+     'zlabel':'Profiles before trigger voltage drop (-{})'.format(trigger_drop),
      'cmap':cmo.cm.solar},
 
 
@@ -556,7 +563,7 @@ scatter_plot_types = [
      'xfield':'mean_profile_depth',
      'yfield':'mean_days_per_profile',
      'zfield':'travelled_depth',
-     'zlabel':'Meters dived before trigger voltage ({})'.format(trigger_voltage),
+     'zlabel':'Meters dived before trigger voltage drop (-{})'.format(trigger_drop),
      'cmap':cmo.cm.haline},
 
     {'title':'Vertical distance (until Vt) depth_steps',
@@ -565,7 +572,7 @@ scatter_plot_types = [
      'xfield':'mean_profile_depth',
      'yfield':'mean_control_step_per_profile',
      'zfield':'travelled_depth',
-     'zlabel':'Meters dived before trigger voltage ({})'.format(trigger_voltage),
+     'zlabel':'Meters dived before trigger voltage drop (-{})'.format(trigger_drop),
      'cmap':cmo.cm.haline},
 
     {'title':'Vertical distance (until Vt) depth_contacts',
@@ -574,7 +581,7 @@ scatter_plot_types = [
      'xfield':'mean_profile_depth',
      'yfield':'contact_fraction',
      'zfield':'travelled_depth',
-     'zlabel':'Meters dived before trigger voltage ({})'.format(trigger_voltage),
+     'zlabel':'Meters dived before trigger voltage drop (-{})'.format(trigger_drop),
      'cmap':cmo.cm.haline},
 
     {'title':'Vertical distance (until Vt) steps_contacts',
@@ -583,7 +590,7 @@ scatter_plot_types = [
      'xfield':'mean_control_step_per_profile',
      'yfield':'contact_fraction',
      'zfield':'travelled_depth',
-     'zlabel':'Meters dived before trigger voltage ({})'.format(trigger_voltage),
+     'zlabel':'Meters dived before trigger voltage drop (-{})'.format(trigger_drop),
      'cmap':cmo.cm.haline},
 
     {'title':'Vertical distance (until Vt) steps_sV',
@@ -592,7 +599,7 @@ scatter_plot_types = [
      'xfield':'mean_control_step_per_profile',
      'yfield':'start_voltage',
      'zfield':'travelled_depth',
-     'zlabel':'Meters dived before trigger voltage ({})'.format(trigger_voltage),
+     'zlabel':'Meters dived before trigger voltage drop (-{})'.format(trigger_drop),
      'cmap':cmo.cm.haline},
 
 
@@ -604,9 +611,17 @@ scatter_plot_types = [
      'xfield':'cycles',
      'yfield':'start_voltage',
      'zfield':'total_control_steps',
-     'zlabel':'Control steps before trigger voltage ({})'.format(trigger_voltage),
-     'cmap':cmo.cm.haline},
+     'zlabel':'Control steps before trigger voltage drop (-{})'.format(trigger_drop),
+     'cmap':plt.cm.get_cmap('brg')},
 
+    {'title':'Bottom contacts (until Vt) depth_days',
+     'xlabel':'Average profile depth (m)',
+     'ylabel':'Average days between profiles',
+     'xfield':'mean_profile_depth',
+     'yfield':'mean_days_per_profile',
+     'zfield':'bottom_contacts',
+     'zlabel':'Bottom contacts before trigger voltage drop (-{})'.format(trigger_drop),
+     'cmap':cmo.cm.haline},
      ]
 for ft in scatter_plot_types:
     plt.figure(figsize=(6,5))
