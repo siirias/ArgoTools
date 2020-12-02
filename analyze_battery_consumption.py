@@ -24,6 +24,7 @@ show_fitting = False
 the_func = lambda x,a,b: (15.0-13.5)*np.exp(b*(x-a))+13.5
 
 show_trigger_voltage = True
+presumed_max_voltage = 15.0
 trigger_voltage = 13.5
 
 base_colors = [(1.0,0.0,0.0),   (0.0,1.0,0.0),  (0.0,0.0,1.0),
@@ -38,7 +39,7 @@ base_colors = [(1.0,0.0,0.0),   (0.0,1.0,0.0),  (0.0,0.0,1.0),
 float_sets = [
         {'n':"f9234_a", 'loc':"f9234\\", 'sensors':'CTD_OB', 'wmo':'6902027','area':'Baltic Proper'},
         {'n':"f9234_b", 'loc':"f9234\\Old_data\\", 'sensors':'CTD_OB', 'wmo':'6902020','area':'Baltic Proper'},
-        {'n':"f9234_c", 'loc':"f9234\\Old_data\\2013_2015\\", 'sensors':'CTD_OB', 'wmo':'6902014','area':'Baltic Proper'},
+#        {'n':"f9234_c", 'loc':"f9234\\Old_data\\2013_2015\\", 'sensors':'CTD_OB', 'wmo':'6902014','area':'Baltic Proper'},  # never reached the Trigger voltage
         {'n':"f9089_a", 'loc':"f9089\\BAPE2_2014\\", 'sensors':'CTD_OB', 'wmo':'6902018','area':'Bothnian Sea'},
         {'n':"f9089_b", 'loc':"f9089\\BAPE2_2016\\", 'sensors':'CTD_OB', 'wmo':'6902021','area':'Bothnian Sea'},
         {'n':"f9089_c", 'loc':"f9089\\", 'sensors':'CTD_OB', 'wmo':'6902028','area':'Bothnian Sea'},
@@ -50,7 +51,7 @@ float_sets = [
         {'n':"f7126_a", 'loc':"f7126\\APE1_2012\\", 'sensors':'CTD', 'wmo':'6901901','area':'Bothnian Sea'},
         {'n':"f7126_b", 'loc':"f7126\\APE1_2014-2015\\", 'sensors':'CTD', 'wmo':'6902017','area':'Bothnian Sea'},
         {'n':"f7126_c", 'loc':"f7126\\", 'sensors':'CTD', 'wmo':'6902023','area':'Bothnian Sea'},
-        {'n':"f7087_a", 'loc':"f7087\\APE2_2013\\", 'sensors':'CTD', 'wmo':'6902013','area':'Bothnian Sea'},
+#        {'n':"f7087_a", 'loc':"f7087\\APE2_2013\\", 'sensors':'CTD', 'wmo':'6902013','area':'Bothnian Sea'}, # start voltage very low
         {'n':"f7087_b", 'loc':"f7087\\APE2_2016\\", 'sensors':'CTD', 'wmo':'6902022','area':'Bothnian Sea'},
         {'n':"f7087_c", 'loc':"f7087\\APE2_2017\\", 'sensors':'CTD', 'wmo':'6902029','area':'Bothnian Sea'},
         {'n':"f7087_d", 'loc':"f7087\\", 'sensors':'CTD', 'wmo':'6902030','area':'Bothnian Sea'}
@@ -138,7 +139,8 @@ for f_s in float_sets:
     control_steps = []
     total_control_actions = []
     control_actions = []
-    bottom_contacts = 0
+    bottom_contacts = []
+    bc_count = 0
     for file in files_to_handle:
         with open(current_input_dir+file,'r') as f:
             file_time = None
@@ -228,11 +230,12 @@ for f_s in float_sets:
                         tmp_control_actions += 1
                         
             if(bottom_contact(lines, f_s['type'])):
-                bottom_contacts+=1
+                bc_count+=1
             if(voltage and not incomplete):
                 voltages.append(voltage)
                 cycles.append(int(re.search(".*\.(\d\d\d)\.",file).groups()[0]))
                 dates.append(file_time)
+                bottom_contacts.append(bc_count)
                 profile_depths.append(deepest)
                 if(len(travelled_depth)==0):
                     travelled_depth.append(deepest)
@@ -270,7 +273,7 @@ for f_s in float_sets:
           dt.datetime.strftime(f_s['dates'][0],'%Y-%m-%d'),\
           dt.datetime.strftime(f_s['dates'][-1],'%Y-%m-%d'),\
           len(f_s['dates']),\
-          f_s['bottom_contacts'],\
+          f_s['bottom_contacts'][-1],\
           np.mean(f_s['profile_depths']),\
           float(f_s['total_control_actions'][-1])/len(f_s['dates']),\
             f_s['area']))
@@ -313,9 +316,14 @@ figure_types = [
         'xfield':'total_control_steps',
         'yfield':'voltages_perc'},
 
-        ]
-
-figure_types = [
+        {'title':'PercVoltage per Control actions',
+         'xlabel':'Piston movement actions',
+        'ylabel':'Voltage(fraction of maximum)',
+        'xfield':'total_control_actions',
+        'yfield':'voltages_perc'},
+#        ]
+#
+#figure_types = [
         {'title':'Voltage per depth distance',
          'xlabel':'Travelled depth',
         'ylabel':'Voltage (V)',
@@ -381,7 +389,7 @@ for ft in figure_types:
         set_color = base_colors[next_color]
         next_color += 1
         if(color_scheme == 'by_bottom_contacts'):
-            bc_f = i['bottom_contacts']/i['cycles'][-1]
+            bc_f = i['bottom_contacts'][-1]/i['cycles'][-1]
             set_color = (bc_f,1.0 - bc_f, 0.5)
         if(color_scheme == 'by_average_profile_depth'):
             bc_f = np.array(i['profile_depths']).mean()/max_profile_depth_average
@@ -413,7 +421,8 @@ for ft in figure_types:
             plt.plot(i[ft['xfield']][:],\
                               i[ft['yfield']][:], \
                               label = the_label,\
-                              linewidth = lw, color = set_color, marker = the_mark)
+                              linewidth = lw, color = set_color, \
+                              marker = the_mark, markersize = 2.0)
             plt.grid(alpha= 0.25)
             if(show_fitting):
                 limit = i['voltages']>13.5
@@ -424,13 +433,17 @@ for ft in figure_types:
                                   i['fit'][ft['xfield']][1]), \
                                   linewidth = lw, color = set_color,\
                                   alpha = 0.25, marker = the_mark )
-#            if(show_trigger_voltage):
-#                plt.axvline(i[ft['xfield']][i['trigger_index']],\
-#                            color = set_color, alpha = 0.25)
+            if(show_trigger_voltage and ft['yfield'] =='voltages_perc'):
+                plt.axhline(trigger_voltage/i['voltages'].max(),\
+                            color = set_color, alpha = 0.99)
         else:
             print("Different format: {}".format(i['n']))
     if(show_trigger_voltage):
-        plt.axhline(trigger_voltage,color = (0.5,0.5,0.5))
+        if(ft['yfield'] =='voltages'):
+            plt.axhline(trigger_voltage,color = (0.5,0.5,0.5))
+        if(ft['yfield'] =='voltages_perc'):
+            plt.axhline(trigger_voltage/presumed_max_voltage,color = (0.5,0.5,0.5))
+            
     plt.legend()
     plt.ylabel(ft['ylabel'])
     plt.xlabel(ft['xlabel'])
@@ -440,14 +453,17 @@ for ft in figure_types:
                         facecolor='w', dpi=300, bbox_inches='tight')
 
 #print table with coefficients, and calulate some derived variables:
+# NOTE: variables with averages are calculated based only 
+# on part above trigger Vltage
 print("WMO;Decay;avg_depth;col/prof;day/prof;cntrolstep/prof")
 for i in float_sets:
+    i['start_voltage'] = i['voltages'][0]
     i['decay'] = i['fit']['lifetime'][1]
-    i['mean_profile_depth'] = i['profile_depths'].mean()
-    i['contact_fraction'] = float(i['bottom_contacts'])/len(i['profile_depths'])
-    i['mean_days_per_profile'] = i['lifetime'][-1]/float(len(i['lifetime']))
-    i['mean_control_step_per_profile'] = float(i['total_control_steps'][-1])/len(i['cycles'])
-    i['mean_control_actions_per_profile'] = float(i['total_control_actions'][-1])/len(i['cycles'])
+    i['mean_profile_depth'] = i['profile_depths'][:i['trigger_index']].mean()
+    i['contact_fraction'] = float(i['bottom_contacts'][i['trigger_index']])/i['cycles'][i['trigger_index']]
+    i['mean_days_per_profile'] = i['lifetime'][i['trigger_index']]/float(i['trigger_index'])
+    i['mean_control_step_per_profile'] = float(i['total_control_steps'][i['trigger_index']])/i['cycles'][i['trigger_index']]
+    i['mean_control_actions_per_profile'] = float(i['total_control_actions'][i['trigger_index']])/i['cycles'][i['trigger_index']]
 
     print("{};{:.3f};{:.1f};{:.2f};{:.1f};{:.1f}".format(\
           i['wmo'],
@@ -485,6 +501,17 @@ scatter_plot_types = [
      'zlabel':'Days before trigger voltage ({})'.format(trigger_voltage),
      'cmap':cmo.cm.thermal},
 
+    {'title':'Mission days (until Vt) steps_contacts',
+     'xlabel':'Average control steps per profile',
+     'ylabel':'Fraction of bottom contacts',
+     'xfield':'mean_control_step_per_profile',
+     'yfield':'contact_fraction',
+     'zfield':'lifetime',
+     'zlabel':'Days before trigger voltage ({})'.format(trigger_voltage),
+     'cmap':cmo.cm.thermal},
+
+
+
     {'title':'Profiles (until Vt) depth_days',
      'xlabel':'Average profile depth (m)',
      'ylabel':'Average days between profiles',
@@ -511,6 +538,17 @@ scatter_plot_types = [
      'zfield':'cycles',
      'zlabel':'Profiles before trigger voltage ({})'.format(trigger_voltage),
      'cmap':cmo.cm.solar},
+
+    {'title':'Profiles (until Vt) steps_contacts',
+     'xlabel':'Average control steps per profile',
+     'ylabel':'Fraction of bottom contacts',
+     'xfield':'mean_control_step_per_profile',
+     'yfield':'contact_fraction',
+     'zfield':'cycles',
+     'zlabel':'Profiles before trigger voltage ({})'.format(trigger_voltage),
+     'cmap':cmo.cm.solar},
+
+
 
     {'title':'Vertical distance (until Vt) depth_days',
      'xlabel':'Average profile depth (m)',
@@ -539,6 +577,36 @@ scatter_plot_types = [
      'zlabel':'Meters dived before trigger voltage ({})'.format(trigger_voltage),
      'cmap':cmo.cm.haline},
 
+    {'title':'Vertical distance (until Vt) steps_contacts',
+     'xlabel':'Average control steps per profile',
+     'ylabel':'Fraction of bottom contacts',
+     'xfield':'mean_control_step_per_profile',
+     'yfield':'contact_fraction',
+     'zfield':'travelled_depth',
+     'zlabel':'Meters dived before trigger voltage ({})'.format(trigger_voltage),
+     'cmap':cmo.cm.haline},
+
+    {'title':'Vertical distance (until Vt) steps_sV',
+     'xlabel':'Average control steps per profile',
+     'ylabel':'Starting Voltage(V)',
+     'xfield':'mean_control_step_per_profile',
+     'yfield':'start_voltage',
+     'zfield':'travelled_depth',
+     'zlabel':'Meters dived before trigger voltage ({})'.format(trigger_voltage),
+     'cmap':cmo.cm.haline},
+
+
+
+
+    {'title':'Control steps (until Vt) profs_sV',
+     'xlabel':'Number of profiles',
+     'ylabel':'Starting Voltage(V)',
+     'xfield':'cycles',
+     'yfield':'start_voltage',
+     'zfield':'total_control_steps',
+     'zlabel':'Control steps before trigger voltage ({})'.format(trigger_voltage),
+     'cmap':cmo.cm.haline},
+
      ]
 for ft in scatter_plot_types:
     plt.figure(figsize=(6,5))
@@ -553,6 +621,10 @@ for ft in scatter_plot_types:
     for i in float_sets:  # mission time as a function of frequency, aveverage depth
         x = i[ft['xfield']]
         y = i[ft['yfield']]
+        if(type(x) == np.ndarray):
+            x = x[i['trigger_index']]  # if the wanted object is list, not number, get the tirgger value
+        if(type(y) == np.ndarray):
+            y = y[i['trigger_index']]
         the_color = cmap((i[ft['zfield']][i['trigger_index']]-lim_min)/(lim_max-lim_min))
         plt.plot(x,y,marker = 'o', markersize = 10, color = the_color)
         plt.text(x,y,"{}\n{}\n".format(i['wmo'],i['area']), \
