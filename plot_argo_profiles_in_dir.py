@@ -18,7 +18,8 @@ import cmocean as cmo
 
 
 #dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\arvorc\\"
-dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\"
+#dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\"
+dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\ice_examples\\"
 #dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\Cape\\"
 output_dir = "D:\\Data\\ArgoData\\Figures\\"
 figure_setup = "EARISE_BP"

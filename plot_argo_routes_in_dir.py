@@ -23,11 +23,14 @@ from itertools import cycle
 dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\" #default value
 output_dir = "D:\\Data\\ArgoData\\Figures\\"
 data_dir = "D:\\Data\\ArgoData\\"  # mainly for topography data
-figure_setup = "EARISE_BP"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
+figure_setup = "EARISE_BP" #"EARISE_deployment"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
 #figure_setup ="Bothnian Sea"  #"EARISE_BP" #May change dir_to_plot
-figure_name="ArgoPlot"
+figure_name="ArgoPlot"  #default value
 plot_contours = False  # default. specific etups may change this
+draw_labels = True
+
 contour_levels = [50,100,150,200,250,300]
+shore_resolution = "50m"  # "10m" "50m"
 fig_dpi = 300
 line_width = 1.2  #0.7
 line_alpha = 0.8
@@ -37,6 +40,10 @@ marker_size = 5
 legend_size = 10
 label_step = 2.0
 bathy_max = 300 # meters
+the_proj = ccrs.PlateCarree()
+requested_proj = ccrs.PlateCarree()
+requested_aspect = 'auto'
+
 replace_labels = {}
 all_colors= ["#ff0000","#000000","#0000ff",\
              "#00ff00","#007060","#d000d0",\
@@ -45,6 +52,7 @@ all_colors= ["#ff0000","#000000","#0000ff",\
              "#aa0055", "#50ff50", "#ff5050",\
              "#5050ff", "#505000", "#500050",\
              "#005050", "#50ff00", "#ff5000"]
+bathy_colormap = cmo.cm.deep
 plot_bathymetry=True
 plot_legends=True
 plot_routes=True
@@ -72,12 +80,56 @@ if(figure_setup == "FullBalticEAR"):
     lon_min=10;lat_min=53;lon_max=30.5;lat_max=66;
     figure_size=(12,10)
     all_colors = ['#000000']
+
+
+if(figure_setup == "Barents Sea"):
+    figure_name = 'FMI_Barents_Sea_Argos'
+    dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\BarentsSea\\" 
+    line_alpha = 0.5
+    plot_points = True
+    plot_legends = True
+    plot_bathymetry = False
+    bathy_max = 400 # meters
+    lon_min=10;lat_min=75;lon_max=50.0;lat_max=80.0;
+    center = [(lon_min+lon_max)*0.5, (lat_min+lat_max)*0.5]
+    requested_proj = ccrs.LambertAzimuthalEqualArea(center[0],center[1])
+    figure_size=(12,10)
+    marker_end_size = 5
+    marker_start_size = 5
+    marker_size = 5
+    all_colors= ["#ff0000","#000000","#0000ff"]
+    bathy_colormap = 'gist_gray_r'
+
+
+if(figure_setup == "EARISE_deployment"):
+    figure_name = 'EARise_deployment'
+    dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_deployment\\" 
+    line_alpha = 0.5
+    plot_points = False
+    plot_legends = False
+    bathy_max = 400 # meters
+    lon_min=15;lat_min=55;lon_max=30.5;lat_max=66;
+    figure_size=(12,10)
+    marker_end_size = 0
+    marker_start_size = 0
+    marker_size = 0
+    all_colors = ['#303040']
+    bathy_colormap = 'gist_gray_r'
                   
 if(figure_setup == "AllFinnish"):
     lon_min=10;lat_min=53;lon_max=30.5;lat_max=66;
     figure_name = 'AllFinnishFloats'
     figure_size=(12,10)
     dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\AllFinnish\\"
+    
+if(figure_setup == "NationalReport2020"):
+    lon_min=10;lat_min=53;lon_max=30.5;lat_max=66;
+    start=mp.dates.datetime.datetime(2010,1,1)
+    end=mp.dates.datetime.datetime(2230,5,5)
+    figure_name = 'NationalReport2020'
+    figure_size=(12,9)
+    dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\NationalReport2020\\"
+    bathy_colormap = 'gist_gray_r'
     
 if(figure_setup == "GotlandD"):
     lon_min=18;lat_min=56;lon_max=21;lat_max=59;
@@ -119,7 +171,8 @@ if(figure_setup == "Bay of Bothnia"):
 if(figure_setup == "EARISE_BP"):
     figure_name="EuroArgoRISE"
     dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\" 
-    lon_min=18.2;lat_min=57.7;lon_max=22.4;lat_max=59.3;
+#    lon_min=18.2;lat_min=57.7;lon_max=22.4;lat_max=59.3;
+    lon_min=19.0-4.0;lat_min=58.0-2.0;lon_max=21.0+4.0;lat_max=59.8+2.0;
     plot_contours = True
     replace_labels = {'6903703':'ARVOR-I(6903703)',\
                       '6903704':'APEX(6903704)'}
@@ -130,6 +183,8 @@ if(figure_setup == "EARISE_BP"):
     marker_end_size = 10
     marker_start_size = 5
     marker_size = 5
+    all_colors = ['#ff0000','#ffffff']
+    requested_aspect = 1.0
 
 
 
@@ -138,17 +193,31 @@ fig=plt.figure(figsize=figure_size)
 plt.clf()
 #bmap = Basemap(llcrnrlon=lon_min,llcrnrlat=lat_min,urcrnrlon=lon_max,urcrnrlat=lat_max, \
 #resolution = 'i',fix_aspect=False)
-the_proj = ccrs.PlateCarree()
-ax = plt.axes(projection=the_proj)
+
+
+#ax = plt.axes(projection=the_proj)
+ax = plt.axes(projection=requested_proj)
 ax.set_extent([lon_min,lon_max,lat_min,lat_max])
-ax.set_aspect('auto')
-ax.coastlines('10m')
-ax.add_feature(cfeature.NaturalEarthFeature('physical', 'land', '10m',\
-                                        edgecolor='face', facecolor='#555570'))
-gl = ax.gridlines(crs=the_proj, draw_labels=True,
-          linewidth=2, color='gray', alpha=0.3, linestyle='-')
+ax.set_aspect(requested_aspect)
+ax.coastlines(shore_resolution)
+#ax.add_feature(cfeature.NaturalEarthFeature('physical', 'land', '10m',\
+#                                        edgecolor='face', facecolor=(0.6,0.6,0.65)))
+#gl = ax.gridlines(crs=the_proj, draw_labels=True,
+#          linewidth=2, color='gray', alpha=0.1, linestyle='-')
 
 
+
+ax.coastlines('10m',zorder=4, alpha = 0.5)
+ax.add_feature(cfeature.NaturalEarthFeature('physical', 'land', shore_resolution,\
+                                        edgecolor='face', \
+                                        facecolor='#555560', alpha = 0.3))
+grid_proj = ccrs.PlateCarree()
+gl = ax.gridlines(crs=grid_proj, draw_labels=draw_labels,
+          linewidth=2, color='gray', alpha=0.1, linestyle='-')
+gl.xlabels_top = False
+gl.ylabels_right = False
+gl.top_labels = False
+gl.right_labels = False
 #bmap.drawcoastlines(linewidth=0.5)
 #bmap.fillcontinents()
 #bmap.drawparallels(np.arange(50.,69,label_step),labels=[1,0,0,0],linewidth=0,dashes=[5,10])
@@ -177,13 +246,15 @@ if plot_bathymetry:
                          alpha=0.3,transform = ccrs.PlateCarree())
         plt.clabel(cn,fmt='%1.0f')
 #    bmap.pcolor(x,y,-1*topoin,cmap=cmo.cm.deep,vmin=0,vmax=bathy_max)
-    plt.pcolor(x,y,-1*topoin,cmap=cmo.cm.deep,vmin=0,\
+    plt.pcolor(x,y,-1*topoin,cmap=bathy_colormap,vmin=0,\
                vmax=bathy_max, transform = ccrs.PlateCarree())
     cb=plt.colorbar()
     cb.ax.invert_yaxis()
     cb.set_label('Depth (m)')
     gl.xlabels_top = False
     gl.ylabels_right = False
+   
+    
     
 color_stack = colors[:]
 if plot_routes:
@@ -229,5 +300,6 @@ if plot_legends:
     plt.legend(loc='lower right',numpoints=1,prop={'size': legend_size})
 plt.savefig(output_dir+figure_name+'.png' ,\
             facecolor='w',dpi=fig_dpi,bbox_inches='tight')
+print("saved: {}".format(output_dir+figure_name+'.png'))
 #plt.savefig(output_dir+figure_name+'.eps' ,\
 #            facecolor='w',dpi=fig_dpi,bbox_inches='tight')

@@ -5,7 +5,7 @@ Created on Wed Sep 13 16:11:18 2017
 @author: siirias
 """
 import sys
-sys.path.insert(0,'D:\\svnfmi_merimallit\\qa\\nemo')
+sys.path.insert(0,'D:\\Data\\svnfmi_merimallit\\qa\\nemo\\')
 import datetime as dt
 import calendar
 import matplotlib as mp
@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from scipy.io import netcdf
 from mpl_toolkits.basemap import Basemap, shiftgrid, cm
-import ModelQATools as qa
+#import ModelQATools as qa
 import math
 import argohelper as ah
 
@@ -66,7 +66,7 @@ filetype='csv' # 'nc' tai 'csv'
 
 if filetype=='nc':
     invalid_val=-10000000000.000
-    file_n='./Siiriaetal2017/2013-2016_GotlDeep_data_from_helcom.nc'
+    file_n='D:\\Data\\ArgoData\\Siiriaetal2017\\2013-2016_GotlDeep_data_from_helcom.nc'
     fmk=netcdf.netcdf_file(file_n,'r')
     press=-1.0*fmk.variables['var1'][:]
     longitude=fmk.variables['longitude'][:]
@@ -88,7 +88,7 @@ if filetype=='nc':
 else:
     if filetype=='csv':
         invalid_val=-10000000000.000
-        file_n='./Siiriaetal2017/Uudet_CTDt_16102017.csv'
+        file_n='D:\\Data\\ArgoData\\Siiriaetal2017\\Uudet_CTDt_16102017.csv'
         fmk=pd.read_csv(file_n)
         press=-1.0*fmk[u'PRES [db]'][:]
         longitude=fmk[u'Longitude [degrees_east]'][:]
@@ -126,7 +126,7 @@ else:
             for i in range(ctd_data.shape[0]):
                 plt.plot(temperature[i,:]+0.5*i,pressure[i,:])
     else:
-        print "wrong fieltype,",filetype," aborting!"
+        print("wrong fieltype,",filetype," aborting!")
         filetype='exitnow'
 
 
@@ -185,9 +185,9 @@ if(filetype!='exitnow'):
     #
     #then plot the argo routes
     plot_legends=False
-    plot_routes=True
+    plot_routes=False
     
-    print "PLOTTING ARGO ROUTES!"
+    print( "PLOTTING ARGO ROUTES!")
     
     
     files_to_plot=["6902014_prof.nc","6902019_prof.nc", \
@@ -221,7 +221,7 @@ if(filetype!='exitnow'):
     if plot_routes:
         for f,col,lab in zip(files_to_plot,colors,labels):
             a=qa.PointData(f,1,start,end,"argonc")
-            print "File {} has {} profiles".format(f,len(a.obs['ape']['lat'][:]))
+            print( "File {} has {} profiles".format(f,len(a.obs['ape']['lat'][:])))
             argo_lats=np.concatenate((argo_lats,a.obs['ape']['lat'][:]))
             argo_lons=np.concatenate((argo_lons,a.obs['ape']['lon'][:]))
             argo_times=np.concatenate((argo_times,mp.dates.num2date(a.obs['ape']['date'][:])))
@@ -262,8 +262,8 @@ if(filetype!='exitnow'):
             argo_distance_mask[i]=True
         
         
-    print "CTD measurements\t:",sum(distance_mask)
-    print "Argo measurements\t:",sum(argo_distance_mask)
+    print ("CTD measurements\t:",sum(distance_mask))
+    print ("Argo measurements\t:",sum(argo_distance_mask))
     
     
     #Plot timeline of picked measurements:
@@ -312,7 +312,7 @@ for i in range(len(best_hits)):
 avg_km_diff=0.
 avg_t_diff=0.
 for i in range(how_many_shown):
-    print "for CTD",best_hits[i][4],"Argo",best_hits[i][0],"\t\td(km){:.2f} (d){:.1f} (tot){:.1f}".format(best_hits[i][3],best_hits[i][2],best_hits[i][1])
+    print ("for CTD",best_hits[i][4],"Argo",best_hits[i][0],"\t\td(km){:.2f} (d){:.1f} (tot){:.1f}".format(best_hits[i][3],best_hits[i][2],best_hits[i][1]))
     avg_km_diff+=best_hits[i][3]
     avg_t_diff+=best_hits[i][2]
 avg_km_diff/=how_many_shown
@@ -330,11 +330,11 @@ for No in range(how_many_shown):
     plt.plot(argo_tem_all[iargo][:]+graph_step*No,-1.0*argo_depth_all[iargo][:],'k-')
     fitness=ah.compare_profiles(pressure[ictd,:],temperature[ictd,:],argo_depth_all[iargo][:],argo_tem_all[iargo][:])
     total_fitness+=fitness
-    print "profile {} fitness {}".format(No,fitness)
-    print "Distance in km: {} \t Distance in days: {}".format(best_hits[No][3],best_hits[No][2])
-    print "Location (CTD) {},{}".format(latitude[best_hits[No][4]],longitude[best_hits[No][4]])
-    print "Location (Argo) {},{}".format(argo_lats_all[best_hits[No][0]],argo_lons_all[best_hits[No][0]])
-    print "Time (CTD) {}".format(times[best_hits[No][4]])
-    print "Time (Argo) {}\n\n".format(argo_times_all[best_hits[No][0]])
-print "With magic number {}, \taverage fitness: {:.2f} \tavg km diff {:.1f} \tavg d diff {:.2f}".format(day_in_km,total_fitness/how_many_shown,avg_km_diff, avg_t_diff)
-print "FINISHED!"
+    print ("profile {} fitness {}".format(No,fitness))
+    print ("Distance in km: {} \t Distance in days: {}".format(best_hits[No][3],best_hits[No][2]))
+    print ("Location (CTD) {},{}".format(latitude[best_hits[No][4]],longitude[best_hits[No][4]]))
+    print ("Location (Argo) {},{}".format(argo_lats_all[best_hits[No][0]],argo_lons_all[best_hits[No][0]]))
+    print ("Time (CTD) {}".format(times[best_hits[No][4]]))
+    print ("Time (Argo) {}\n\n".format(argo_times_all[best_hits[No][0]]))
+print ("With magic number {}, \taverage fitness: {:.2f} \tavg km diff {:.1f} \tavg d diff {:.2f}".format(day_in_km,total_fitness/how_many_shown,avg_km_diff, avg_t_diff))
+print ("FINISHED!")

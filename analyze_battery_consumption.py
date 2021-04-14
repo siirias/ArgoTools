@@ -36,17 +36,18 @@ base_colors = [(1.0,0.0,0.0),   (0.0,1.0,0.0),  (0.0,0.0,1.0),
                (0.8,0.8,0.2),   (0.8,0.2,0.8),  (0.2,0.8,0.8),
                (0.9,0.5,0.5),   (0.5,0.9,0.5),  (0.5,0.5,0.9),
                (0.4,0.2,0.2),   (0.2,0.4,0.2),  (0.2,0.4,0.2),
-               (0.99,0.7,0.7),   (0.7,0.99,0.7),  (0.7,0.7,0.99)
-               ]  # 21 Hand picked colors which are more or less easy to tell from eachothers
+               (0.99,0.7,0.7),   (0.7,0.99,0.7),  (0.7,0.7,0.99),
+               (0.5,0.0,0.0),   (0.0,0.5,0.0),  (0.0,0.0,0.5)
+               ]  # 24 Hand picked colors which are more or less easy to tell from eachothers
 
 float_sets = [
         {'n':"f9234_a", 'loc':"f9234\\", 'sensors':'CTD_OB', 'wmo':'6902027','area':'Baltic Proper'},
         {'n':"f9234_b", 'loc':"f9234\\Old_data\\", 'sensors':'CTD_OB', 'wmo':'6902020','area':'Baltic Proper'},
-#        {'n':"f9234_c", 'loc':"f9234\\Old_data\\2013_2015\\", 'sensors':'CTD_OB', 'wmo':'6902014','area':'Baltic Proper'},  # never reached the Trigger voltage
-        {'n':"f9089_a", 'loc':"f9089\\BAPE2_2014\\", 'sensors':'CTD_OB', 'wmo':'6902018','area':'Bothnian Sea'},
-        {'n':"f9089_b", 'loc':"f9089\\BAPE2_2016\\", 'sensors':'CTD_OB', 'wmo':'6902021','area':'Bothnian Sea'},
-        {'n':"f9089_c", 'loc':"f9089\\", 'sensors':'CTD_OB', 'wmo':'6902028','area':'Bothnian Sea'},
-        {'n':"f8907", 'loc':"f8907\\", 'sensors':'CTD_O', 'wmo':'6903704','area':'N.Baltic Proper'},
+        {'n':"f9234_c", 'loc':"f9234\\Old_data\\2013_2015\\", 'sensors':'CTD_OB', 'wmo':'6902014','area':'Baltic Proper'},  
+#        {'n':"f9089_a", 'loc':"f9089\\BAPE2_2014\\", 'sensors':'CTD_OB', 'wmo':'6902018','area':'Bothnian Sea'}, # never reached the Trigger voltage
+#        {'n':"f9089_b", 'loc':"f9089\\BAPE2_2016\\", 'sensors':'CTD_OB', 'wmo':'6902021','area':'Bothnian Sea'},  # Bape2 unreliable due diving faults
+#        {'n':"f9089_c", 'loc':"f9089\\", 'sensors':'CTD_OB', 'wmo':'6902028','area':'Bothnian Sea'},  # Never reaches target voltage
+#        {'n':"f8907", 'loc':"f8907\\", 'sensors':'CTD_O', 'wmo':'6903704','area':'N.Baltic Proper'}, # Young float, problem with battery, different software.
         {'n':"f8543", 'loc':"f8543\\", 'sensors':'CTD_O', 'wmo':'6903700','area':'Bay of Bothnia'},
         {'n':"f8540", 'loc':"f8540\\", 'sensors':'CTD_O', 'wmo':'6903701','area':'Baltic Proper'},
 #        {'n':"f8348", 'loc':"f8348\\", 'sensors':'CTD_O', 'wmo':'6903695', 'area':'Barents Sea'},  # Barents sea
@@ -57,7 +58,14 @@ float_sets = [
 #        {'n':"f7087_a", 'loc':"f7087\\APE2_2013\\", 'sensors':'CTD', 'wmo':'6902013','area':'Bothnian Sea'}, # start voltage very low
         {'n':"f7087_b", 'loc':"f7087\\APE2_2016\\", 'sensors':'CTD', 'wmo':'6902022','area':'Bothnian Sea'},
         {'n':"f7087_c", 'loc':"f7087\\APE2_2017\\", 'sensors':'CTD', 'wmo':'6902029','area':'Bothnian Sea'},
-        {'n':"f7087_d", 'loc':"f7087\\", 'sensors':'CTD', 'wmo':'6902030','area':'Bothnian Sea'}
+        {'n':"f7087_d", 'loc':"f7087\\", 'sensors':'CTD', 'wmo':'6902030','area':'Bothnian Sea'},
+        
+        {'n':"f9568_a", 'loc':"f9568\\old data\\old_data_2014_2015\\", 'sensors':'CTD_OB', 'wmo':'6902019','area':'Baltic Proper'},
+        {'n':"f9568_b", 'loc':"f9568\\old data\\data2016_2017\\", 'sensors':'CTD_OB', 'wmo':'6902024','area':'Baltic Proper'},
+        {'n':"f9568_c", 'loc':"f9568\\", 'sensors':'CTD_OB', 'wmo':'6903697','area':'Baltic Proper'},
+        {'n':"f8541", 'loc':"f8541\\", 'sensors':'CTD_O', 'wmo':'6903699','area':'Bothnian Sea'},
+        {'n':"f12697", 'loc':"f12697\\", 'sensors':'CTD_O', 'wmo':'6902025','area':'Bothnian Sea'},
+        {'n':"f12761", 'loc':"f12761\\", 'sensors':'CTD', 'wmo':'6902026','area':'Bay of Bothnia'},
         
         ]
 
@@ -415,9 +423,9 @@ for ft in figure_types:
             if( i['sensors'].lower() == 'ctd'):
                 the_mark = 'x'
             if( i['sensors'].lower() == 'ctd_o'):
-                the_mark = '.'
-            if( i['sensors'].lower() == 'ctd_ob'):
                 the_mark = 'o'
+            if( i['sensors'].lower() == 'ctd_ob'):
+                the_mark = 'P'
                 
         if('voltages' in i.keys()):
 #            the_label = "{} bc:{:.1f} %".format(i['wmo'],100.0*i['bottom_contacts']/i['cycles'][-1])
@@ -426,7 +434,7 @@ for ft in figure_types:
                               i[ft['yfield']][:], \
                               label = the_label,\
                               linewidth = lw, color = set_color, \
-                              marker = the_mark, markersize = 2.0)
+                              marker = the_mark, markersize = 5.0)
             plt.grid(alpha= 0.25)
             if(show_fitting):
                 limit = i['voltages']>13.5
@@ -439,10 +447,10 @@ for ft in figure_types:
                                   alpha = 0.25, marker = the_mark )
             if(show_trigger_voltage and ft['yfield'] =='voltages_perc'):
                 plt.axhline(i['trigger_v']/i['voltages'].max(),\
-                            color = set_color, alpha = 0.99)
+                            color = set_color, alpha = 1.0, linewidth = 0.5)
             if(show_trigger_voltage and ft['yfield'] =='voltages'):
                 plt.axhline(i['trigger_v'],\
-                            color = set_color, alpha = 0.99)
+                            color = set_color, alpha = 1.0, linewidth = 0.5)
         else:
             print("Different format: {}".format(i['n']))
     if(show_trigger_voltage):
@@ -526,7 +534,7 @@ scatter_plot_types = [
      'yfield':'mean_days_per_profile',
      'zfield':'cycles',
      'zlabel':'Profiles before trigger voltage drop (-{})'.format(trigger_drop),
-     'cmap':cmo.cm.solar},
+     'cmap':plt.cm.get_cmap('gnuplot')},
 
     {'title':'Profiles (until Vt) depth_steps',
      'xlabel':'Average profile depth (m)',
@@ -535,7 +543,7 @@ scatter_plot_types = [
      'yfield':'mean_control_step_per_profile',
      'zfield':'cycles',
      'zlabel':'Profiles before trigger voltage drop (-{})'.format(trigger_drop),
-     'cmap':cmo.cm.solar},
+     'cmap':plt.cm.get_cmap('gnuplot')},
 
     {'title':'Profiles (until Vt) depth_contacts',
      'xlabel':'Average profile depth (m)',
@@ -544,7 +552,7 @@ scatter_plot_types = [
      'yfield':'contact_fraction',
      'zfield':'cycles',
      'zlabel':'Profiles before trigger voltage drop (-{})'.format(trigger_drop),
-     'cmap':cmo.cm.solar},
+     'cmap':plt.cm.get_cmap('gnuplot')},
 
     {'title':'Profiles (until Vt) steps_contacts',
      'xlabel':'Average control steps per profile',
@@ -553,7 +561,7 @@ scatter_plot_types = [
      'yfield':'contact_fraction',
      'zfield':'cycles',
      'zlabel':'Profiles before trigger voltage drop (-{})'.format(trigger_drop),
-     'cmap':cmo.cm.solar},
+     'cmap':plt.cm.get_cmap('gnuplot')},
 
 
 
