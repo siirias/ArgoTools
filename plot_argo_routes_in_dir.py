@@ -20,10 +20,10 @@ import argohelper as ah
 import cmocean as cmo
 from itertools import cycle
 
-dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\" #default value
-output_dir = "D:\\Data\\ArgoData\\Figures\\"
-data_dir = "D:\\Data\\ArgoData\\"  # mainly for topography data
-figure_setup = "EARISE_BP" #"EARISE_deployment"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
+dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\" #default value
+output_dir = "C:\\Data\\ArgoData\\Figures\\"
+data_dir = "C:\\Data\\ArgoData\\"  # mainly for topography data
+figure_setup = "EAR_UseCase" #"EARISE_deployment"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
 #figure_setup ="Bothnian Sea"  #"EARISE_BP" #May change dir_to_plot
 figure_name="ArgoPlot"  #default value
 plot_contours = False  # default. specific etups may change this
@@ -62,7 +62,7 @@ end=mp.dates.datetime.datetime(2230,5,5)
 figure_size=(10,5)  #default value!
 
 if( figure_setup == "GoB"):
-    dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\BothnianSea\\"
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BothnianSea\\"
     figure_name = "Gulf of Bothnia"
     lon_min=17;lat_min=60;lon_max=26;lat_max=66;
     figure_size=(10,10)
@@ -72,7 +72,7 @@ if(figure_setup == "FullBaltic"):
     figure_size=(8,10)
     
 if(figure_setup == "FullBalticEAR"):
-    dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise\\" 
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\EARise\\" 
     line_alpha = 0.4
     plot_points = False
     plot_legends = False
@@ -81,10 +81,23 @@ if(figure_setup == "FullBalticEAR"):
     figure_size=(12,10)
     all_colors = ['#000000']
 
+if(figure_setup == "EAR_UseCase"):
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\EARise_UseCase\\" 
+    line_alpha = 0.4
+    plot_points = False
+    plot_legends = False
+    bathy_max = 400 # meters
+    lon_min=10;lat_min=53;lon_max=30.5;lat_max=66;
+    figure_size=(12,10)
+    all_colors = ['#000000']
+    shore_resolution = "10m"  # "10m" "50m"
+    fig_dpi  =300
+    line_width = 1.0  #0.7
+
 
 if(figure_setup == "Barents Sea"):
     figure_name = 'FMI_Barents_Sea_Argos'
-    dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\BarentsSea\\" 
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BarentsSea\\" 
     line_alpha = 0.5
     plot_points = True
     plot_legends = True
@@ -103,7 +116,7 @@ if(figure_setup == "Barents Sea"):
 
 if(figure_setup == "EARISE_deployment"):
     figure_name = 'EARise_deployment'
-    dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_deployment\\" 
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\EARise_deployment\\" 
     line_alpha = 0.5
     plot_points = False
     plot_legends = False
@@ -120,7 +133,7 @@ if(figure_setup == "AllFinnish"):
     lon_min=10;lat_min=53;lon_max=30.5;lat_max=66;
     figure_name = 'AllFinnishFloats'
     figure_size=(12,10)
-    dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\AllFinnish\\"
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\AllFinnish\\"
     
 if(figure_setup == "NationalReport2020"):
     lon_min=10;lat_min=53;lon_max=30.5;lat_max=66;
@@ -128,7 +141,7 @@ if(figure_setup == "NationalReport2020"):
     end=mp.dates.datetime.datetime(2230,5,5)
     figure_name = 'NationalReport2020'
     figure_size=(12,9)
-    dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\NationalReport2020\\"
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\NationalReport2020\\"
     bathy_colormap = 'gist_gray_r'
     
 if(figure_setup == "GotlandD"):
@@ -137,20 +150,20 @@ if(figure_setup == "GotlandD"):
     end=mp.dates.datetime.datetime(2230,5,5)
     figure_size=(10,15)  #default value!
     figure_name="FMIGotlandDeep"
-    dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\GotlandDeep\\"
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\GotlandDeep\\"
     
 if(figure_setup == "Bothnian Sea"):
     start=mp.dates.datetime.datetime(2019,3,1)
     end=mp.dates.datetime.datetime(2230,5,5)
     figure_name="FMIBothnianSea"
-    dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\BothnianSea\\"
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BothnianSea\\"
     lon_min=17;lat_min=60;lon_max=22;lat_max=63;
     
 if(figure_setup == "Bothnian Sea Aranda"):
     start=mp.dates.datetime.datetime(2019,3,1)
     end=mp.dates.datetime.datetime(2230,5,5)
     figure_name="FMIBothnianSeaAranda"
-    dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\BothnianSea\\"
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BothnianSea\\"
     lon_min=19;lat_min=61;lon_max=22;lat_max=63;
     plot_contours = True
     figure_size=(10,10)
@@ -165,12 +178,12 @@ if(figure_setup == "Bay of Bothnia"):
     start=mp.dates.datetime.datetime(2000,3,1)
     end=mp.dates.datetime.datetime(2230,5,5)
     figure_name="FMIBothnianBay"
-    dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\BayOfBothnia\\"
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BayOfBothnia\\"
     lon_min=20;lat_min=64;lon_max=26;lat_max=66;
     
 if(figure_setup == "EARISE_BP"):
     figure_name="EuroArgoRISE"
-    dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\" 
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\" 
 #    lon_min=18.2;lat_min=57.7;lon_max=22.4;lat_max=59.3;
     lon_min=19.0-4.0;lat_min=58.0-2.0;lon_max=21.0+4.0;lat_max=59.8+2.0;
     plot_contours = True
@@ -207,10 +220,13 @@ ax.coastlines(shore_resolution)
 
 
 
-ax.coastlines('10m',zorder=4, alpha = 0.5)
+#ax.coastlines(shore_resolution,zorder=4, alpha = 0.5)
 ax.add_feature(cfeature.NaturalEarthFeature('physical', 'land', shore_resolution,\
-                                        edgecolor='face', \
-                                        facecolor='#555560', alpha = 0.3))
+                                        edgecolor='#000000', linewidth = 0.1,\
+                                        facecolor='#ccccdd', alpha = 1.0))
+ax.add_feature(cfeature.NaturalEarthFeature('physical', 'lakes', shore_resolution,\
+                                        edgecolor='#000000', linewidth=0.5, \
+                                        facecolor='#ffffff', alpha = 1.0))
 grid_proj = ccrs.PlateCarree()
 gl = ax.gridlines(crs=grid_proj, draw_labels=draw_labels,
           linewidth=2, color='gray', alpha=0.1, linestyle='-')
@@ -247,7 +263,7 @@ if plot_bathymetry:
         plt.clabel(cn,fmt='%1.0f')
 #    bmap.pcolor(x,y,-1*topoin,cmap=cmo.cm.deep,vmin=0,vmax=bathy_max)
     plt.pcolor(x,y,-1*topoin,cmap=bathy_colormap,vmin=0,\
-               vmax=bathy_max, transform = ccrs.PlateCarree())
+               vmax=bathy_max, transform = ccrs.PlateCarree(), zorder = -1)
     cb=plt.colorbar()
     cb.ax.invert_yaxis()
     cb.set_label('Depth (m)')

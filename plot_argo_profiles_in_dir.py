@@ -19,18 +19,18 @@ import cmocean as cmo
 
 #dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\arvorc\\"
 #dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\"
-dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\ice_examples\\"
-#dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\Cape\\"
-output_dir = "D:\\Data\\ArgoData\\Figures\\"
+dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BarentsSea\\"
+#dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\Cape\\"
+output_dir = "C:\\Data\\ArgoData\\Figures\\"
 figure_setup = "EARISE_BP"
 figure_name = "ArgoPlot_profile"
-figure_size = (8,10)
+figure_size = (20,8)
 fig_dpi = 300
 c_map = 'viridis'
 interp_depths = np.array(np.arange(0,210,0.1))
 plot_profile_timelines = True
 plot_profile_clusters = True
-
+enhance_temperature_min = -1.0 # -100.0 would ignore this
 variables = ['TEMP','PSAL','DOXY']
 start=mp.dates.datetime.datetime(1000,5,5)
 end=mp.dates.datetime.datetime(3030,5,5)
@@ -67,8 +67,21 @@ if plot_profile_timelines:
                         cmap = cmap,\
                         shading = 'auto')
                 plt.gca().invert_yaxis()
-                cbar = plt.colorbar()
+                cbar = plt.colorbar(pad = 0.01, fraction = 0.05)
                 cbar.set_label(ah.axes_label_from_variable_name(var))
+                if(var == 'TEMP' and enhance_temperature_min>-50.0):
+                    tmp_data = interp_data.copy()
+                    tmp_data[tmp_data>enhance_temperature_min] = np.nan
+                    plt.pcolormesh(\
+                            np.array(d['JULD'])[primaries],\
+                            interp_depths,\
+                            np.transpose(tmp_data),\
+                            cmap = cmo.cm.gray,\
+                            shading = 'auto',
+                            zorder = 10)
+                    plt.axhline(35,color = 'b',zorder = 11)
+                    plt.axhline(17,color = 'r',zorder = 11)
+                    cbar = plt.colorbar(pad = 0.01, fraction = 0.05)
                 plt.title("Float "+float_name)
                 plt.ylabel(ah.axes_label_from_variable_name('PRES'))
                 plt.xlabel(ah.axes_label_from_variable_name('JULD'))
@@ -77,7 +90,7 @@ if plot_profile_timelines:
                             facecolor='w',dpi=fig_dpi,bbox_inches='tight')
                 plt.savefig(output_dir+filename+'.eps' ,\
                             facecolor='w',dpi=fig_dpi,bbox_inches='tight')
-
+                print("Saved: {}".format(output_dir+filename+'.png'))
 if plot_profile_clusters:
     for f in files_to_plot:
         for var in variables:
@@ -110,3 +123,4 @@ if plot_profile_clusters:
                             facecolor='w',dpi=fig_dpi,bbox_inches='tight')
                 plt.savefig(output_dir+filename+'.eps' ,\
                             facecolor='w',dpi=fig_dpi,bbox_inches='tight')
+                print("Saved: {}".format(output_dir+filename+'.png'))
