@@ -23,12 +23,12 @@ from itertools import cycle
 dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\" #default value
 output_dir = "C:\\Data\\ArgoData\\Figures\\"
 data_dir = "C:\\Data\\ArgoData\\"  # mainly for topography data
-figure_setup = "BGC_BS" #"EAR_UseCase" #"EARISE_deployment"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
+figure_setup = "NBalticProper" #"EAR_UseCase" #"EARISE_deployment"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
 #figure_setup ="Bothnian Sea"  #"EARISE_BP" #May change dir_to_plot
 figure_name="ArgoPlot"  #default value
 plot_contours = False  # default. specific etups may change this
 draw_labels = True
-
+draw_EEZ = True
 contour_levels = [50,100,150,200,250,300]
 shore_resolution = "50m"  # "10m" "50m"
 fig_dpi = 300
@@ -79,6 +79,7 @@ if(figure_setup == "NBalticProper"):
 #    lon_min=19.0-4.0;lat_min=58.0-2.0;lon_max=21.0+4.0;lat_max=59.8+2.0;
     lon_min=19.15;lat_min=58.5;lon_max=20.8;lat_max=59.5;
     plot_contours = True
+    contour_levels = list(range(0,250,25))
     replace_labels = {'6903703':'ARVOR-I(6903703)',\
                       '6903704':'APEX(6903704)'}
     figure_size=(10,5)
@@ -326,7 +327,10 @@ if plot_bathymetry:
     gl.xlabels_top = False
     gl.ylabels_right = False
    
-    
+if(draw_EEZ):
+    ax.add_wms('http://geo.vliz.be/geoserver/MarineRegions/wms?',\
+               layers='eez_boundaries')
+        
 color_stack = colors[:]
 if plot_routes:
     for f,label in zip(files_to_plot,labels):
