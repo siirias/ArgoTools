@@ -23,7 +23,7 @@ from itertools import cycle
 dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\" #default value
 output_dir = "C:\\Data\\ArgoData\\Figures\\"
 data_dir = "C:\\Data\\ArgoData\\"  # mainly for topography data
-figure_setup = "EAR_UseCase" #"EARISE_deployment"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
+figure_setup = "BGC_BS" #"EAR_UseCase" #"EARISE_deployment"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
 #figure_setup ="Bothnian Sea"  #"EARISE_BP" #May change dir_to_plot
 figure_name="ArgoPlot"  #default value
 plot_contours = False  # default. specific etups may change this
@@ -60,6 +60,36 @@ plot_points = True
 start=mp.dates.datetime.datetime(2000,3,1)
 end=mp.dates.datetime.datetime(2230,5,5)
 figure_size=(10,5)  #default value!
+
+if( figure_setup == "BGC_BS"):
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BGC_BS\\"
+    figure_name = "BGC_BothnianSea"
+    lon_min=17;lat_min=60;lon_max=24;lat_max=64;
+    figure_size=(10,10)
+
+if( figure_setup == "BGC_BP"):
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BGC_BP\\"
+    figure_name = "BGC_BalticProper"
+    lon_min=16;lat_min=55;lon_max=23;lat_max=60;
+    figure_size=(10,10)
+
+if(figure_setup == "NBalticProper"):
+    figure_name="NorthernBalticProper"
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\NBalticProper\\" 
+#    lon_min=19.0-4.0;lat_min=58.0-2.0;lon_max=21.0+4.0;lat_max=59.8+2.0;
+    lon_min=19.15;lat_min=58.5;lon_max=20.8;lat_max=59.5;
+    plot_contours = True
+    replace_labels = {'6903703':'ARVOR-I(6903703)',\
+                      '6903704':'APEX(6903704)'}
+    figure_size=(10,5)
+    line_alpha=0.3
+    label_step = 0.2
+    bathy_max = 200.0
+    marker_end_size = 10
+    marker_start_size = 5
+    marker_size = 5
+    all_colors = ['#ff0000','#ffffff']
+    requested_aspect = 1.0
 
 if( figure_setup == "GoB"):
     dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BothnianSea\\"
@@ -106,11 +136,29 @@ if(figure_setup == "Barents Sea"):
     lon_min=10;lat_min=75;lon_max=50.0;lat_max=80.0;
     center = [(lon_min+lon_max)*0.5, (lat_min+lat_max)*0.5]
     requested_proj = ccrs.LambertAzimuthalEqualArea(center[0],center[1])
-    figure_size=(12,10)
+    figure_size=np.array((12,10))*0.5
     marker_end_size = 5
     marker_start_size = 5
     marker_size = 5
     all_colors= ["#ff0000","#000000","#0000ff"]
+    bathy_colormap = 'gist_gray_r'
+
+
+if(figure_setup == "Barents Sea all"):
+    figure_name = 'EARise_Barents_Sea_Argos'
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BarentsSeaAll\\" 
+    line_alpha = 0.5
+    plot_points = True
+    plot_legends = True
+    plot_bathymetry = False
+    bathy_max = 400 # meters
+    lon_min=10;lat_min=68;lon_max=50.0;lat_max=80.0;
+    center = [(lon_min+lon_max)*0.5, (lat_min+lat_max)*0.5]
+    requested_proj = ccrs.LambertAzimuthalEqualArea(center[0],center[1])
+    figure_size=np.array((12,10))*0.75
+    marker_end_size = 5
+    marker_start_size = 5
+    marker_size = 5
     bathy_colormap = 'gist_gray_r'
 
 
@@ -129,6 +177,12 @@ if(figure_setup == "EARISE_deployment"):
     all_colors = ['#303040']
     bathy_colormap = 'gist_gray_r'
                   
+if(figure_setup == "BS_ISA"):
+    lon_min=16;lat_min=60;lon_max=25.5;lat_max=66;
+    figure_name = 'BalticSeaISA'
+    figure_size=np.array((12,10))*0.5
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BS_ICE\\"
+    
 if(figure_setup == "AllFinnish"):
     lon_min=10;lat_min=53;lon_max=30.5;lat_max=66;
     figure_name = 'AllFinnishFloats'
@@ -185,12 +239,13 @@ if(figure_setup == "EARISE_BP"):
     figure_name="EuroArgoRISE"
     dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\" 
 #    lon_min=18.2;lat_min=57.7;lon_max=22.4;lat_max=59.3;
-    lon_min=19.0-4.0;lat_min=58.0-2.0;lon_max=21.0+4.0;lat_max=59.8+2.0;
+#    lon_min=19.0-4.0;lat_min=58.0-2.0;lon_max=21.0+4.0;lat_max=59.8+2.0;
+    lon_min=19.0-1.0;lat_min=58.0-1.0;lon_max=21.0+1.0;lat_max=59.8+1.0;
     plot_contours = True
     replace_labels = {'6903703':'ARVOR-I(6903703)',\
                       '6903704':'APEX(6903704)'}
     figure_size=(10,5)
-    line_alpha=0.3
+    line_alpha=0.8
     label_step = 0.2
     bathy_max = 200.0
     marker_end_size = 10
@@ -248,13 +303,14 @@ print(files_to_plot,labels)
 
 #TOPOGRAPHY EXPERIMENT
 if plot_bathymetry:
+
     topodata = Dataset(data_dir+'iowtopo2_rev03.nc')
-    
     topoin = topodata.variables['Z_WATER'][:]
     lons = topodata.variables['XT_I'][:]
     lats = topodata.variables['YT_J'][:]
     x=np.tile(lons,(lats.shape[0],1))
     y=np.tile(lats,(lons.shape[0],1)).T
+
     if plot_contours:
 #        cn = bmap.contour(x,y,-1*topoin,colors='k',vmin=0,vmax=bathy_max, alpha=0.3)
         cn = plt.contour(x,y,-1*topoin,levels = contour_levels,\
@@ -271,7 +327,6 @@ if plot_bathymetry:
     gl.ylabels_right = False
    
     
-    
 color_stack = colors[:]
 if plot_routes:
     for f,label in zip(files_to_plot,labels):
@@ -281,16 +336,20 @@ if plot_routes:
         if(lab in replace_labels.keys()):
             lab = replace_labels[lab]  #some image setups want specific labels
         d=xr.open_dataset(dir_to_plot+f)
+        time_var = 'JULD' 
+        if('JULD' not in list(d.keys())):
+            time_var = 'TIME'        
         primaries = ah.get_primary_indices(d)
         primaries = np.asarray(primaries) & \
-                    np.asarray(d['JULD']>np.datetime64(start)) &\
-                    np.asarray(d['JULD']<np.datetime64(end))
+                    np.asarray(d[time_var]>np.datetime64(start)) &\
+                    np.asarray(d[time_var]<np.datetime64(end))
         lat_dat = np.array(d['LATITUDE'])[primaries]
         lon_dat = np.array(d['LONGITUDE'])[primaries]
         d.close()
 #        x,y=bmap(lon_dat,lat_dat)
     #    bmap.plot(x,y,color=col,linewidth=2,alpha=0.5)
         print(len(lon_dat))
+        print(label,d[time_var].min(),d[time_var].max() )
         if(len(lon_dat)>0):
             col = color_stack.pop(0)
 #            bmap.plot(x,y,color=col,linewidth=line_width, alpha=line_alpha)

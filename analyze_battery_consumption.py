@@ -18,8 +18,8 @@ import scipy.optimize
 import cmocean as cmo
 
 
-input_dir = "D:\\Data\\ArgoData\\ArgoRawData\\"
-out_dir = "D:\\Data\\figures\\Battery\\"
+input_dir = "C:\\Data\\ArgoData\\ArgoRawData\\"
+out_dir = "C:\\Data\\figures\\Battery\\"
 show_fitting = False
 the_func = lambda x,a,b: (15.0-13.5)*np.exp(b*(x-a))+13.5
 
@@ -133,7 +133,7 @@ def bottom_contact(log_lines, float_type = 'apex11'):
 
 
 for f_s in float_sets:
-    current_input_dir = input_dir+f_s['loc']
+t dat    current_input_dir = input_dir+f_s['loc']
     f_s['type'] = "apex9"
     files_to_handle = [i for i in os.listdir(current_input_dir) if re.match(".*\.\d\d\d\.log$",i)]
     # Newer floats have different file setup.
