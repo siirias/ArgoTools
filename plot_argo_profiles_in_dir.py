@@ -16,29 +16,37 @@ import pandas as pd
 import argohelper as ah
 import cmocean as cmo
 
-close_figures = True
+close_figures = False
 file_format = "new_server"  # "old_server" "new_server"
 #dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\arvorc\\"
 #dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\NBalticProper\\"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\Cape\\"
-dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BGC_BP\\"
-#dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BarentsSea\\"
+#dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BGC_BP\\"
+#dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\RBR\\"
+dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BarentsSea\\"
 output_dir = "C:\\Data\\ArgoData\\Figures\\"
 figure_size_timeline = (10,4)
 figure_size_profile = (7,10)
+max_depth = 250.0
+tl_min = None #4.5   # fixes axes for each variable, 
+tl_max = None #23.0  # so usualy work for just one at a time.
 fig_dpi = 300
 c_map = 'viridis'
-interp_depths = np.array(np.arange(0,210,0.1))
+interp_depths = np.array(np.arange(0,max_depth,0.1))
 plot_profile_timelines = True
 plot_profile_clusters = True
+cluster_grid = True
 profile_cloud_alpha = 0.2
-enhance_temperature_min = -1.0 # -100.0 would ignore this
-#variables = ['TEMP','PSAL','DOXY']
-variables = ['TEMP','PSAL','DOX2', 'BBP700', 'CPHL_ADJUSTED', 'CDOM', \
-             'DOWN_IRRADIANCE380', 'DOWN_IRRADIANCE412', 'DOWN_IRRADIANCE490']
-start=mp.dates.datetime.datetime(1000,5,5)
-end=mp.dates.datetime.datetime(3030,5,5)
+enhance_temperature_min = -100.0 # -100.0 would ignore this
+variables = ['TEMP','PSAL']
+#variables = ['TEMP','PSAL','DOX2', 'BBP700', 'CPHL_ADJUSTED', 'CDOM', \
+#             'DOWN_IRRADIANCE380', 'DOWN_IRRADIANCE412', 'DOWN_IRRADIANCE490']
+#start=mp.dates.datetime.datetime(1000,5,5)
+#end=mp.dates.datetime.datetime(3030,5,5)
+
+start=mp.dates.datetime.datetime(1021,6,29)
+end=mp.dates.datetime.datetime(3021,12,20)
 
 time_var = 'JULD' 
 if(file_format == 'new_server'):
@@ -58,6 +66,9 @@ if plot_profile_timelines:
                 plt.clf()
                 cmap = ah.axes_label_from_variable_name(var, give_colormap=True)[1]            
                 primaries = ah.get_primary_indices(d)
+                # primaries = np.asarray(primaries) & \
+                #             np.asarray(d[time_var]>np.datetime64(start)) &\
+                #             np.asarray(d[time_var]<np.datetime64(end))
                 if(var in ['DOXY', 'DOX2', 'BBT700', 'CPHL_ADJUSTED']): #these must be taken from secondary profiles
                     primaries = []
                     for i in d[var]:
@@ -66,6 +77,8 @@ if plot_profile_timelines:
                         else:
                             primaries.append(False)
                     primaries = list(map(lambda x: not x,primaries))
+                    
+                    
                 interp_data = ah.interpolate_data_to_depths(\
                                 np.array(d[var])[primaries,:],\
                                 np.array(d['PRES'])[primaries,:],\
@@ -76,7 +89,9 @@ if plot_profile_timelines:
                         interp_depths,\
                         np.transpose(interp_data),\
                         cmap = cmap,\
-                        shading = 'auto')
+                        shading = 'auto',
+                        vmin = tl_min,
+                        vmax = tl_max)
                 plt.gca().invert_yaxis()
                 cbar = plt.colorbar(pad = 0.01, fraction = 0.05)
 #                cbar.set_label(ah.axes_label_from_variable_name(var))
@@ -117,16 +132,22 @@ if plot_profile_clusters:
                 fig=plt.figure(figsize=figure_size_profile)
                 plt.clf()
                 primaries = ah.get_primary_indices(d)
+                # primaries = np.asarray(primaries) & \
+                #             np.asarray(d[time_var]>np.datetime64(start)) &\
+                #             np.asarray(d[time_var]<np.datetime64(end))
+                d_sel = d[var][primaries]
+                d_sel_time = d[time_var][primaries]
+                d_sel_pres = d['PRES'][primaries]
                 #create colorbar for time-indices
                 sm = plt.cm.ScalarMappable(cmap = c_map, \
-                            norm=plt.Normalize(vmin = d[time_var].min(),\
-                                               vmax=d[time_var].max()))
+                            norm=plt.Normalize(vmin = d_sel[time_var].min(),\
+                                               vmax=d_sel[time_var].max()))
                 sm._A=[] # this is needed as scalar mappable needs someting to map.
                 clims = sm.get_clim()
-                for i in range(d[var].shape[0]):
-                    color = float(d[time_var][i]-clims[0])/float(clims[1]-clims[0])
+                for i in range(d_sel.shape[0]):
+                    color = float(d_sel_time[i]-clims[0])/float(clims[1]-clims[0])
                     color = sm.get_cmap()(color)
-                    plt.plot(d[var][i,:], d['PRES'][i,:],\
+                    plt.plot(d_sel[i,:], d_sel_pres[i,:],\
                              color = color, alpha = profile_cloud_alpha)
                 plt.title("Float " + float_name)
                 plt.ylabel(ah.axes_label_from_variable_name('PRES'))
@@ -138,6 +159,8 @@ if plot_profile_clusters:
                 cbar.ax.set_yticklabels(\
                         pd.to_datetime(\
                             cbar.get_ticks()).strftime(date_format='%d %b %Y'))
+                if cluster_grid:
+                    plt.grid()
                 filename = "{}_{}_cl".format(float_name,var)
                 plt.savefig(output_dir+filename+'.png' ,\
                             facecolor='w',dpi=fig_dpi,bbox_inches='tight')

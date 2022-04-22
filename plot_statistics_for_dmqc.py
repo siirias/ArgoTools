@@ -21,7 +21,9 @@ files =['ICES_Statistics_Practical_Salinity_dmnless_by_depth_in_BothSea.csv',
 
 fig_size = [8,10]
 fig_dpi = 300
-
+add_std = True
+add_minmax = True
+add_50p = False
 for f in files:
     data = pd.read_csv(data_dir+f)
     #split the name and get same variables
@@ -41,17 +43,24 @@ for f in files:
         map(lambda y: (float(y[0])+float(y[1]))/2.0,\
         map(lambda x: re.search('([\d\.]+)[^\d]*([\d\.]+)',x)\
         .groups(), data['PRES_window']))))
-    
+    name_extra = ''
     plt.figure(figsize = fig_size)
     plt.plot(data['mean'], depths,'k.-')
-    plt.fill_betweenx(depths, data['min'],data['max'], color = 'b', alpha = 0.25)
-    plt.fill_betweenx(depths, data['25%'],data['75%'], color = 'b', alpha = 0.5)
+    if add_minmax:
+        plt.fill_betweenx(depths, data['min'],data['max'], color = 'b', alpha = 0.25)
+        name_extra+="_MinMax"
+    if add_50p:
+        plt.fill_betweenx(depths, data['25%'],data['75%'], color = 'b', alpha = 0.5)
+        name_extra+="_50p"
+    if add_std:
+        plt.fill_betweenx(depths, data['mean'] - data['std'], data['mean'] + data['std'], color = 'g', alpha = 0.5)
+        name_extra += "STD"
     plt.grid('on')
     plt.gca().invert_yaxis()
     plt.title("Mean {} in {}".format(variable_name, area))
     plt.ylabel('Pressure({})'.format(unit))
     plt.xlabel("{}({})".format(variable_name, unit))
-    filename = "DMQC{}_{}".format(variable_name, area)
+    filename = "DMQC{}_{}{}".format(variable_name, area,name_extra)
     plt.savefig(output_dir+filename+'.png' ,\
                 facecolor='w',dpi=fig_dpi,bbox_inches='tight')
 

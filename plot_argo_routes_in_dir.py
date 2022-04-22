@@ -23,12 +23,12 @@ from itertools import cycle
 dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\" #default value
 output_dir = "C:\\Data\\ArgoData\\Figures\\"
 data_dir = "C:\\Data\\ArgoData\\"  # mainly for topography data
-figure_setup = "NBalticProper" #"EAR_UseCase" #"EARISE_deployment"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
+figure_setup = "Barents Sea" #"EAR_UseCase" #"EARISE_deployment"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
 #figure_setup ="Bothnian Sea"  #"EARISE_BP" #May change dir_to_plot
 figure_name="ArgoPlot"  #default value
 plot_contours = False  # default. specific etups may change this
 draw_labels = True
-draw_EEZ = True
+draw_EEZ = False
 contour_levels = [50,100,150,200,250,300]
 shore_resolution = "50m"  # "10m" "50m"
 fig_dpi = 300
@@ -42,6 +42,11 @@ label_step = 2.0
 bathy_max = 300 # meters
 the_proj = ccrs.PlateCarree()
 requested_proj = ccrs.PlateCarree()
+
+# Proj = ccrs.TransverseMercator(\
+#            central_latitude = 78.0,\
+#            central_longitude = 30.0,\
+#            approx=True)
 requested_aspect = 'auto'
 
 replace_labels = {}
@@ -73,11 +78,18 @@ if( figure_setup == "BGC_BP"):
     lon_min=16;lat_min=55;lon_max=23;lat_max=60;
     figure_size=(10,10)
 
+if( figure_setup == "RBR"):
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\RBR\\"
+    figure_name = "RBR_BalticProper"
+    lon_min=16;lat_min=53;lon_max=30.5;lat_max=66;
+    figure_size=(10,10)
+
 if(figure_setup == "NBalticProper"):
     figure_name="NorthernBalticProper"
     dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\NBalticProper\\" 
 #    lon_min=19.0-4.0;lat_min=58.0-2.0;lon_max=21.0+4.0;lat_max=59.8+2.0;
-    lon_min=19.15;lat_min=58.5;lon_max=20.8;lat_max=59.5;
+#    lon_min=19.15;lat_min=58.5;lon_max=20.8;lat_max=59.5;
+    lon_min=19.6;lat_min=57.0;lon_max=22.2;lat_max=59.5;
     plot_contours = True
     contour_levels = list(range(0,250,25))
     replace_labels = {'6903703':'ARVOR-I(6903703)',\
@@ -89,6 +101,8 @@ if(figure_setup == "NBalticProper"):
     marker_end_size = 10
     marker_start_size = 5
     marker_size = 5
+    line_width = 1.5  #0.7
+    line_alpha = 0.9
     all_colors = ['#ff0000','#ffffff']
     requested_aspect = 1.0
 
@@ -197,6 +211,15 @@ if(figure_setup == "NationalReport2020"):
     figure_name = 'NationalReport2020'
     figure_size=(12,9)
     dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\NationalReport2020\\"
+    bathy_colormap = 'gist_gray_r'
+    
+if(figure_setup == "NationalReport2021"):
+    lon_min=10;lat_min=53;lon_max=30.5;lat_max=66;
+    start=mp.dates.datetime.datetime(2010,1,1)
+    end=mp.dates.datetime.datetime(2230,5,5)
+    figure_name = 'NationalReport2021'
+    figure_size=(12,9)
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\NationalReport2021\\"
     bathy_colormap = 'gist_gray_r'
     
 if(figure_setup == "GotlandD"):

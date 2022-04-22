@@ -32,9 +32,10 @@ figure_name="DMQCAreas"  #default value
 do_plot = True
 plot_contours = False  # default. specific etups may change this
 draw_labels = False
-draw_EEZ = False
+draw_EEZ = True
+draw_measuring_points = False
 contour_levels = [50,100,150,200,250,300]
-shore_resolution = "50m"  # "10m" "50m"
+shore_resolution = "10m"  # "10m" "50m"
 fig_dpi = 300
 line_width = 1.2  #0.7
 line_alpha = 0.8
@@ -58,7 +59,7 @@ all_colors= ["#ff0000","#000000","#0000ff",\
              "#005050", "#50ff00", "#ff5000"]
 bathy_colormap = cmo.cm.deep
 plot_bathymetry=True
-plot_legends=True
+plot_legends=False
 plot_routes=True
 plot_points = True
 start=mp.dates.datetime.datetime(2000,3,1)
@@ -67,7 +68,7 @@ figure_size=(10,5)  #default value!
 
     
 if( figure_setup == "DMQCAreas"):
-    figure_name = "test"
+    figure_name = "DMQCAreas"
     lon_min=12;lat_min=53;lon_max=30.5;lat_max=66;
     figure_size=(10,10)
     C_LAT = (lat_min+lat_max)/2.0
@@ -76,7 +77,7 @@ if( figure_setup == "DMQCAreas"):
                central_latitude = C_LAT,\
                central_longitude = C_LON,\
            scale_factor = 0.001, approx=True) #kilometers, center at radar
-    requested_proj = ccrs.PlateCarree()
+    #requested_proj = ccrs.PlateCarree()
 
 data = pd.read_csv(file_to_plot, delimiter='\t')
 
@@ -98,8 +99,8 @@ if do_plot:
     grid_proj = ccrs.PlateCarree()
     gl = ax.gridlines(crs=grid_proj, draw_labels=draw_labels,
               linewidth=2, color='gray', alpha=0.1, linestyle='-')
-    gl.xlabels_top = False
-    gl.ylabels_right = False
+    gl.xlabels_top = True
+    gl.ylabels_right = True
     gl.top_labels = False
     gl.right_labels = False
     
@@ -127,20 +128,20 @@ if do_plot:
         cb=plt.colorbar()
         cb.ax.invert_yaxis()
         cb.set_label('Depth (m)')
-        gl.xlabels_top = False
-        gl.ylabels_right = False
+        # gl.xlabels_top = False
+        # gl.ylabels_right = False
        
     if(draw_EEZ):
         ax.add_wms('http://geo.vliz.be/geoserver/MarineRegions/wms?',\
                    layers='eez_boundaries')
-            
-    for lat,lon  in zip(data[lat_i],data[lon_i]):
-       plt.plot([lat], [lon], '.', transform = requested_proj)
+    if draw_measuring_points:
+        plt.plot(data[lon_i], data[lat_i], '.', transform = ccrs.PlateCarree(), zorder = 4, color = 'b', markersize= 3.0,alpha=0.002)
+    
         
     if plot_legends:
         plt.legend(loc='lower right',numpoints=1,prop={'size': legend_size})
     plt.savefig(output_dir+figure_name+'.png' ,\
                 facecolor='w',dpi=fig_dpi,bbox_inches='tight')
     print("saved: {}".format(output_dir+figure_name+'.png'))
-    #plt.savefig(output_dir+figure_name+'.eps' ,\
-    #            facecolor='w',dpi=fig_dpi,bbox_inches='tight')
+    plt.savefig(output_dir+figure_name+'.eps' ,\
+                facecolor='w',dpi=fig_dpi,bbox_inches='tight')

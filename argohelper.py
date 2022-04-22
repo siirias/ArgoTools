@@ -283,6 +283,9 @@ def get_primary_indices(dataset):
     primaries = list(map(lambda x:'Primary' in x, sampling_schemes))
     #true where primary.
     primaries=np.array(primaries)
+    #if none has the 'Primary', assume all are primaries
+    if sum(primaries) == 0:
+        primaries[:]=True
     return primaries
 
 def interpolate_data_to_depths(variable, depths, new_depth_axis):
