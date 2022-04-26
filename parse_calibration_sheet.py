@@ -13,19 +13,18 @@ import re
 xmin = 0.0
 ymin = 7.0
 data =\
-"""
-SENSOR SERIAL NUMBER: 4793
-CALIBRATION DATE: 29-Mar-15
+"""SENSOR SERIAL NUMBER: 3503
+CALIBRATION DATE: 19-Jun-15
 SBE 41cp CONDUCTIVITY CALIBRATION DATA
 PSS 1978: C(35,15,0) = 4.2914 Siemens/meter
 COEFFICIENTS:
-g = -9.821266e-001
-h = 1.423310e-001
-i = -3.134470e-004
-j = 4.250802e-005
+g = -1.028007e+000
+h = 1.495265e-001
+i = -3.432114e-004
+j = 4.724081e-005
 CPcor = -9.5700e-008
 CTcor = 3.2500e-006
-WBOTC = 6.3322e-008
+WBOTC = -4.2500e-007
 BATH TEMP
 (ITS-90)
 BATH SAL
@@ -40,95 +39,143 @@ RESIDUAL
 (Siemens/m)
 22.0000
 1.0000
-4.5000
+4.4999
 15.0000
 18.5000
 23.9940
 29.0000
 32.5000
 0.0000
-34.8427
-34.8232
-34.7813
-34.7727
-34.7632
-34.7579
-34.7551
+34.8628
+34.8431
+34.8003
+34.7912
+34.7814
+34.7763
+34.7735
 0.00000
-2.97801
-3.28531
-4.26777
-4.61321
-5.17098
-5.69383
-6.06652
-2631.75
-5283.52
-5484.15
-6080.58
-6276.54
-6580.37
-6852.61
-7040.03
+2.97956
+3.28699
+4.26986
+4.61540
+5.17339
+5.69650
+6.06937
+2627.11
+5185.88
+5380.60
+5959.86
+6150.29
+6445.61
+6710.37
+6892.70
 0.00000
-2.97801
-3.28531
-4.26778
-4.61320
-5.17098
-5.69384
-6.06652
-0.00000
+2.97956
+3.28699
+4.26986
+4.61542
+5.17337
+5.69648
+6.06939
 0.00000
 -0.00000
-0.00000
--0.00001
-0.00000
+-0.00000
 0.00001
+0.00002
 -0.00001
+-0.00002
+0.00002
 """
 
 
 data2 =\
-"""
-SENSOR SERIAL NUMBER: 4793
-CALIBRATION DATE: 27-Mar-13
-SBE 41cp CONDUCTIVIT Y CALIBRATION DATA
-PSS 1978: C(35,15 ,0) = 4.2914 Sieme n s/meter
-COEFFICIENTS:
-g = -9.821290e - 0 01
-h = 1.423607e - 0 01
-i = -3.273814e - 0 04
-j = 4.338152e - 0 05
-CPcor = -9.570 0 e -008
-CTcor = 3.250 0 e -006
-WBOTC = 6.332 2 e -008
-BATH TEMP BATH SAL BATH COND INST FREQ INST COND R ESIDUAL
-(ITS-90) (PSU) (Siemens/m) (Hz) (Siemens/m) (Siemens/m)
-22.0000 0.0000 0.00000 2631.76 0.00000 0.00000
-1.0015 34.8984 2.98244 5286.84 2.98245 0.00001
-4.5000 34.8782 3.28999 5487.54 3.28998 -0.00001
-15.0000 34.8347 4.27363 6084.44 4.27363 -0.00000
-18.5000 34.8250 4.61940 6280.52 4.61940 0.00000
-23.9940 34.8142 5.17773 6584.51 5.17772 -0.00000
-29.0000 34.8075 5.70104 6856.88 5.70105 0.00001
-32.5001 34.8029 6.07393 7044.32 6.07392 -0.00001
-"""
-
-data3 =\
-"""
-SENSOR SERIAL NUMBER: 4793
-CALIBRATION DATE: 24-Jan-17
+"""SENSOR SERIAL NUMBER: 3503
+CALIBRATION DATE: 22-Feb-17
 SBE 41cp CONDUCTIVITY CALIBRATION DATA
 PSS 1978: C(35,15,0) = 4.2914 Siemens/meter
 COEFFICIENTS:
-g = -9.836474e-001
-h = 1.427120e-001
-i = -4.180454e-004
-j = 5.025814e-005
+g = -1.017400e+000
+h = 1.481721e-001
+i = -4.263132e-004
+j = 5.244764e-005
 CPcor = -9.5700e-008
 CTcor = 3.2500e-006
-WBOTC = 6.3322e-008
+WBOTC = -4.2500e-007
+BATH TEMP
+(° C)
+BATH SAL
+(PSU)
+BATH COND
+(S/m)
+INSTRUMENT
+OUTPUT (Hz)
+INSTRUMENT
+COND (S/m)
+RESIDUAL
+(S/m)
+22.0000
+0.9999
+4.5000
+15.0001
+18.5001
+23.9940
+29.0000
+32.5000
+0.0000
+34.8153
+34.7955
+34.7525
+34.7432
+34.7328
+34.7265
+34.7218
+0.00000
+2.97588
+3.28295
+4.26462
+4.60973
+5.16696
+5.68926
+6.06137
+2627.11
+5205.42
+5401.40
+5984.32
+6175.92
+6473.01
+6739.24
+6922.47
+0.00000
+2.97589
+3.28295
+4.26461
+4.60973
+5.16697
+5.68927
+6.06136
+0.00000
+0.00001
+-0.00001
+-0.00001
+0.00000
+0.00001
+0.00001
+-0.00001
+"""
+
+data3 =\
+"""SENSOR SERIAL NUMBER: 3503
+CALIBRATION DATE: 31-Jan-18
+SBE 41cp CONDUCTIVITY CALIBRATION DATA
+PSS 1978: C(35,15,0) = 4.2914 Siemens/meter
+COEFFICIENTS:
+g = -1.016771e+000
+h = 1.479133e-001
+i = -3.481665e-004
+j = 4.656400e-005
+CPcor = -9.5700e-008
+CTcor = 3.2500e-006
+WBOTC = -4.2500e-007
 BATH TEMP
 (° C)
 BATH SAL
@@ -148,49 +195,48 @@ RESIDUAL
 18.5000
 23.9940
 29.0000
-32.3568
+32.5000
 0.0000
-34.7105
-34.6908
-34.6492
-34.6402
-34.6305
-34.6253
-34.6224
+34.7454
+34.7251
+34.6821
+34.6727
+34.6625
+34.6566
+34.6531
 0.00000
-2.96778
-3.27405
-4.25328
-4.59752
-5.15342
-5.67455
-6.03067
-2632.31
-5276.89
-5477.13
-6072.41
-6267.98
-6571.19
-6842.87
-7022.28
+2.97048
+3.27697
+4.25689
+4.60137
+5.15765
+5.67910
+6.05074
+2627.14
+5201.69
+5397.42
+5979.64
+6171.02
+6467.81
+6733.84
+6916.99
 0.00000
-2.96778
-3.27405
-4.25327
-4.59752
-5.15342
-5.67455
-6.03067
+2.97048
+3.27697
+4.25689
+4.60137
+5.15765
+5.67910
+6.05074
 0.00000
-0.00000
-0.00000
--0.00001
 -0.00000
-0.00001
 0.00000
--0.00001
+-0.00000
+0.00000
+-0.00000
+0.00000
+-0.00000
 """
-
 def ParseData(data_string):
     """
     Parameters
@@ -215,21 +261,21 @@ def ParseData(data_string):
         if bool(re.match(".*SERIAL NUMBER",line)):
             ser_num = re.search(":\s*(\d+)",line).groups()[0]
         if bool(re.match(".*[ghij] =",line)):
-            tmp_coeff = float(re.search(".*[ghij]\s*=\s*([\-e\d.]+)",\
+            tmp_coeff = float(re.search(".*[ghij]\s*=\s*([\-+e\d.]+)",\
                             re.sub('\s','',line)).groups()[0])
             coefficients.append(tmp_coeff)
         if bool(re.match(".*CPcor =",line)):
-            CPcor = float(re.search(".*CPcor\s*=\s*([e\-\d.]+)",\
+            CPcor = float(re.search(".*CPcor\s*=\s*([e\-+\d.]+)",\
                             re.sub('\s','',line)).groups()[0])
         if bool(re.match(".*CTcor =",line)):
-            CTcor = float(re.search(".*CTcor\s*=\s*([e\-\d.]+)",\
+            CTcor = float(re.search(".*CTcor\s*=\s*([e\-+\d.]+)",\
                             re.sub('\s','',line)).groups()[0])
         if bool(re.match(".*WBOTC =",line)):
-            WBOTC = float(re.search(".*WBOTC\s*=\s*([e\-\d.]+)",\
+            WBOTC = float(re.search(".*WBOTC\s*=\s*([e\-+\d.]+)",\
                             re.sub('\s','',line)).groups()[0])
-        if bool(re.match("^[-\d.e]+$",line)):
+        if bool(re.match("^[-+\d.e]+$",line)):
             numbers.append(float(line))
-        elif bool(re.match("^[-\d.e\s]+$",line)):
+        elif bool(re.match("^[-+\d.e\s]+$",line)):
             tmp_line = line.split()
             tmp_line = list(map(float,tmp_line))
             numbers_ln.append(tmp_line)
@@ -270,14 +316,19 @@ d = ParseData(data)
 d2 = ParseData(data2)
 d3 = ParseData(data3)
 
-for t,f,c in zip(d['bath_t'],d['inst_freq'],d['bath_c']):
-    new_c = freo_to_c(d,f,10.0,t)
-    print(new_c, c, c - new_c)
-print('compare')
-for t,f,c in zip(d['bath_t'],d['inst_freq'],d['bath_c']):
-    new_c = freo_to_c(d2,f,10.0,t)
-    print(new_c, c, c - new_c)
-print('compare')
-for t,f,c in zip(d['bath_t'],d['inst_freq'],d['bath_c']):
-    new_c = freo_to_c(d3,f,10.0,t)
-    print(new_c, c, c - new_c)    
+max_diff_in_c = 0.0
+how_many = 0
+print("SENSOR: {}".format(d['ser_num']))
+for compare_d in [d,d2,d3]:
+    average_diff_in_c = 0.0
+    for t,f,c in zip(d['bath_t'],d['inst_freq'],d['bath_c']):
+        new_c = freo_to_c(compare_d,f,10.0,t)
+        print(new_c, c, c - new_c)
+        average_diff_in_c += np.abs(c - new_c)
+        how_many += 1
+        if np.abs(c - new_c)>max_diff_in_c :
+            max_diff_in_c = np.abs(c - new_c)
+    average_diff_in_c = average_diff_in_c/float(how_many)
+    print ("average error: {}".format(average_diff_in_c))
+
+print("Largest difference in conductivity: {}".format(max_diff_in_c))    
