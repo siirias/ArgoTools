@@ -9,6 +9,7 @@ Plot some polynomials, for calibration work
 import re
 import numpy as np
 import PyPDF2 as pp
+import datetime as dt
 
 in_dir = "C:\\Data\\EARiseQC\\FloatCalibrationData\\all\\"
 in_file1 = "SBE 41cp C3503 22Feb17.pdf"
@@ -43,6 +44,7 @@ def ParseData(data_string):
     CPcor = 0
     CTcor = 0
     WBOTC = 0
+    the_date = 0
     coefficients = []
     numbers = [] # if numbers are each in their own line
     numbers_ln = [] # if each row has six values
@@ -51,6 +53,9 @@ def ParseData(data_string):
             ser_num = re.search(":\s*(\d+)",line).groups()[0]
         if bool(re.match(".*CONDUCTIVITY CALIBRATION DATA",line)):
             right_page_found = True
+        if bool(re.match('.*CALIBRATION\s+DATE:',line)):
+            the_date = re.search(".*CALIBRATION\s+DATE:\s*(.+)$", line).groups()[0]
+            the_date = dt.datetime.strptime(the_date,'%d-%b-%y')
             
         if(right_page_found): #check these only if we are sure page is right.
             if bool(re.match(".*[ghij] =",line)):
@@ -83,6 +88,7 @@ def ParseData(data_string):
         tmp = np.array(numbers).reshape((6,-1)) # get Bath T, Bath S, Bath C, Inst Freq, Inst C, Resid
     else:
         tmp = np.array(numbers_ln).transpose()
+    return_value['date'] = the_date
     return_value['ser_num'] = ser_num
     return_value['coefficients'] = coefficients
     return_value['CPcor'] = CPcor 
@@ -122,6 +128,7 @@ max_diff_in_c = 0.0
 how_many = 0
 print("SENSOR: {}".format(d['ser_num']))
 for compare_d in [d,d2,d3]:
+    print("{} vs {}".format(d['date'], compare_d['date']))
     average_diff_in_c = 0.0
     for t,f,c in zip(d['bath_t'],d['inst_freq'],d['bath_c']):
         new_c = freo_to_c(compare_d,f,10.0,t)
