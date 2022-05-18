@@ -20,11 +20,17 @@ import argohelper as ah
 import cmocean as cmo
 from itertools import cycle
 
+import folium # only needed for interactive leaflet maps
+from PIL import Image # only needed for interactive leaflet maps
+
 dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\" #default value
 output_dir = "C:\\Data\\ArgoData\\Figures\\"
 data_dir = "C:\\Data\\ArgoData\\"  # mainly for topography data
-figure_setup = "Barents Sea" #"EAR_UseCase" #"EARISE_deployment"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
+figure_setup = "NBalticProper" #"EAR_UseCase" #"EARISE_deployment"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
 #figure_setup ="Bothnian Sea"  #"EARISE_BP" #May change dir_to_plot
+
+make_leaflet = True
+
 figure_name="ArgoPlot"  #default value
 plot_contours = False  # default. specific etups may change this
 draw_labels = True
@@ -65,6 +71,16 @@ plot_points = True
 start=mp.dates.datetime.datetime(2000,3,1)
 end=mp.dates.datetime.datetime(2230,5,5)
 figure_size=(10,5)  #default value!
+if(figure_setup == "ArvorC"):
+    start=mp.dates.datetime.datetime(2019,3,1)
+    end=mp.dates.datetime.datetime(2230,5,5)
+    figure_name="FMI_ArvorC"
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\arvorc\\"
+    lon_min=17;lat_min=60;lon_max=22;lat_max=63;
+#    lon_min=20.1;lat_min=61.395;lon_max=20.25;lat_max=61.425;
+    figure_size=(10,11)
+    shore_resolution = "10m"  # "10m" "50m"
+    
 
 if( figure_setup == "BGC_BS"):
     dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BGC_BS\\"
@@ -355,6 +371,29 @@ if(draw_EEZ):
                layers='eez_boundaries')
         
 color_stack = colors[:]
+
+if make_leaflet:
+    map_center = [(lat_min+lat_max)/2.0, (lon_min+lon_max)/2.0]
+    map_radius = ah.distance(map_center, [lat_min,lon_min])
+    zoom_level = np.log2(40000.0/(map_radius*0.75))
+    leaflet_map = folium.Map(location = map_center, zoom_start = zoom_level)
+    if plot_bathymetry:
+        tmp_topo = topoin.data.copy()
+        tmp_topo[topoin.mask] = 0.0
+        tmp_topo[tmp_topo>bathy_max] = bathy_max
+        tmp_topo = -1.0*tmp_topo/bathy_max
+        tmp_topo = cmo.cm.ice(tmp_topo)
+        tmp_topo[:,:,3] = ~topoin.mask # transparency
+        tmp_topo = tmp_topo[-1::-1,:]
+        leaflet_bathy = folium.raster_layers.ImageOverlay(\
+                        tmp_topo, [[lats[0],lons[0]],[lats[-1],lons[-1]]]
+#                        ,colomap = cmo.cm.topo
+                         ,opacity = 0.5
+                         ,mercator_project = True
+                        )
+        leaflet_map.add_child(leaflet_bathy)
+        
+    
 if plot_routes:
     for f,label in zip(files_to_plot,labels):
         if(len(color_stack)==0):
@@ -396,6 +435,19 @@ if plot_routes:
             print(lon_dat[-1],lat_dat[-1], lab)
     #    print lab, mp.dates.num2date(a.obs['ape']['date'][0]).date() \
     #             , mp.dates.num2date(a.obs['ape']['date'][-1]).date()
+        if make_leaflet:
+            locations = list(zip(lat_dat[~np.isnan(lat_dat)],\
+                                 lon_dat[~np.isnan(lon_dat)]))
+            folium_line = folium.PolyLine(locations = locations, \
+                                weight = 2, color = col, opacity = line_alpha)
+            leaflet_map.add_child(folium_line)
+            leaflet_map.add_child(\
+                    folium.CircleMarker(locations[0], marker_start_size, color = col))
+            leaflet_map.add_child(\
+                    folium.Marker(locations[-1],
+                        icon = folium.Icon(color='#009900'),
+                        riseOnHover = True,
+                        title = lab))
 
 if plot_legends:
     #plt.legend(bbox_to_anchor=(1.0,0.5),numpoints=1)
@@ -405,3 +457,6 @@ plt.savefig(output_dir+figure_name+'.png' ,\
 print("saved: {}".format(output_dir+figure_name+'.png'))
 #plt.savefig(output_dir+figure_name+'.eps' ,\
 #            facecolor='w',dpi=fig_dpi,bbox_inches='tight')
+if make_leaflet:
+    leaflet_map.save(output_dir+figure_name+'.html')
+    print("saved: {}{}.html".format(output_dir,figure_name))
