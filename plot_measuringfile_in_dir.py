@@ -78,8 +78,8 @@ if( figure_setup == "DMQCAreas"):
                central_longitude = C_LON,\
            scale_factor = 0.001, approx=True) #kilometers, center at radar
     #requested_proj = ccrs.PlateCarree()
-
-data = pd.read_csv(file_to_plot, delimiter='\t')
+if draw_measuring_points:
+    data = pd.read_csv(file_to_plot, delimiter='\t')
 
 
 if do_plot:
@@ -96,6 +96,9 @@ if do_plot:
     ax.add_feature(cfeature.NaturalEarthFeature('physical', 'lakes', shore_resolution,\
                                             edgecolor='#000000', linewidth=0.5, \
                                             facecolor='#ffffff', alpha = 1.0))
+    ax.add_feature(cfeature.NaturalEarthFeature('cultural', 'admin_0_boundary_lines_land', shore_resolution,\
+                                            edgecolor='#600000', linewidth=0.7, \
+                                            facecolor = 'none', alpha = 0.4, zorder = 5))
     grid_proj = ccrs.PlateCarree()
     gl = ax.gridlines(crs=grid_proj, draw_labels=draw_labels,
               linewidth=2, color='gray', alpha=0.1, linestyle='-')
@@ -133,7 +136,8 @@ if do_plot:
        
     if(draw_EEZ):
         ax.add_wms('http://geo.vliz.be/geoserver/MarineRegions/wms?',\
-                   layers='eez_boundaries')
+                   layers='eez_boundaries', alpha = 0.5)
+            
     if draw_measuring_points:
         plt.plot(data[lon_i], data[lat_i], '.', transform = ccrs.PlateCarree(), zorder = 4, color = 'b', markersize= 3.0,alpha=0.002)
     

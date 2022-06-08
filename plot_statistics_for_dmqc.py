@@ -18,13 +18,13 @@ files =['ICES_Statistics_Practical_Salinity_dmnless_by_depth_in_BothSea.csv',
         'ICES_Statistics_Temperature_degC_by_depth_in_BothSea.csv', 
         'ICES_Statistics_Temperature_degC_by_depth_in_BP.csv']
 
-
+ylimits = [(0.0,120.0), (0.0,230.0), (0.0,120.0), (0.0,230.0)]
 fig_size = [8,10]
 fig_dpi = 300
 add_std = True
 add_minmax = True
 add_50p = False
-for f in files:
+for f,ylims in zip(files,ylimits):
     data = pd.read_csv(data_dir+f)
     #split the name and get same variables
     variable_name = f.split('_')[2]
@@ -56,6 +56,7 @@ for f in files:
         plt.fill_betweenx(depths, data['mean'] - data['std'], data['mean'] + data['std'], color = 'g', alpha = 0.5)
         name_extra += "STD"
     plt.grid('on')
+    plt.ylim(ylims)
     plt.gca().invert_yaxis()
     plt.title("Mean {} in {}".format(variable_name, area))
     plt.ylabel('Pressure({})'.format(unit))

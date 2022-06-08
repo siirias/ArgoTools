@@ -45,8 +45,8 @@ texts = [
     ["Bothnian Sea\n6.0",19.2,61.9],
     ["Northern\nBaltic Proper\n7.5",20.4,59.0],
     ["Baltic Proper\n8.0",20.3, 57.6],
-    ["Bornholm Basin\n8.5",15.9, 55.2],
-    ["Gdansk Basin\n8.2",19.2, 55.2],
+    ["Bornholm Basin\n8.1",15.9, 55.2],
+    ["Gdansk Basin\n8.1",19.2, 55.2],
     
     ]
 plt.figure(figsize = (8,10))

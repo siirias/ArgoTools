@@ -15,16 +15,19 @@ import xarray as xr
 import pandas as pd
 import argohelper as ah
 import cmocean as cmo
+import plotly.express as px #Only needed for plotly output
+import plotly.io as pio     #Only needed for plotly output
 
+make_plotly = True
 close_figures = False
 file_format = "new_server"  # "old_server" "new_server"
-#dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\arvorc\\"
+#dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\arvorc\\"
 #dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\"
-#dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\NBalticProper\\"
+dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\NBalticProper\\"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\Cape\\"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BGC_BP\\"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\RBR\\"
-dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BarentsSea\\"
+#dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BarentsSea\\"
 output_dir = "C:\\Data\\ArgoData\\Figures\\"
 figure_size_timeline = (10,4)
 figure_size_profile = (7,10)
@@ -47,6 +50,12 @@ variables = ['TEMP','PSAL']
 
 start=mp.dates.datetime.datetime(1021,6,29)
 end=mp.dates.datetime.datetime(3021,12,20)
+
+if make_plotly:
+    pio.renderers.default='browser'
+    out_file = "{}.html".format(re.search("\\\([^\\\]*)\\\$",\
+                                        dir_to_plot).groups()[0])
+    plotly_file = open(output_dir + out_file,'w')
 
 time_var = 'JULD' 
 if(file_format == 'new_server'):
@@ -169,4 +178,7 @@ if plot_profile_clusters:
                 print("Saved: {}".format(output_dir+filename+'.png'))
                 if(close_figures):
                     plt.close()
-                
+                if make_plotly:
+                    pfig = px.line()
+if make_plotly:
+    plotly_file.close()
