@@ -291,16 +291,31 @@ def get_primary_indices(dataset):
 def interpolate_data_to_depths(variable, depths, new_depth_axis):
     #assumes data is format (profile_n, level_n)
     d_shape = variable.shape
-    new_data = np.zeros((d_shape[0],new_depth_axis.shape[0]))
-    for i in range(new_data.shape[0]):
-        min_depth = np.nanmin(depths[i,:])
-        max_depth = np.nanmax(depths[i,:])
+    if(len(d_shape) == 2):
+        new_data = np.zeros((d_shape[0],new_depth_axis.shape[0]))
+        for i in range(new_data.shape[0]):
+            min_depth = np.nanmin(depths[i,:])
+            max_depth = np.nanmax(depths[i,:])
+            for d in range(new_data.shape[1]):
+                val = get_closest(depths[i,:],variable[i,:],new_depth_axis[d])[1]
+                if(new_depth_axis[d]>max_depth or \
+                   new_depth_axis[d]<min_depth):
+                    val = np.nan
+                new_data[i,d] = val
+    if(len(d_shape) == 1):
+        new_data = np.zeros((1,new_depth_axis.shape[0]))
+        min_depth = np.nanmin(depths[:])
+        max_depth = np.nanmax(depths[:])
         for d in range(new_data.shape[1]):
-            val = get_closest(depths[i,:],variable[i,:],new_depth_axis[d])[1]
+            if(not np.isnan(new_depth_axis[d])):
+                val = get_closest(depths[:],variable[:],new_depth_axis[d])[1]
+            else:
+                val = np.nan
             if(new_depth_axis[d]>max_depth or \
                new_depth_axis[d]<min_depth):
                 val = np.nan
-            new_data[i,d] = val
+            new_data[0,d] = val
+                
     return  new_data
 
 def axes_label_from_variable_name(var_name, give_colormap = False):

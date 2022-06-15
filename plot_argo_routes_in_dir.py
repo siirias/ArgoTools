@@ -26,12 +26,12 @@ from PIL import Image # only needed for interactive leaflet maps
 dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\" #default value
 output_dir = "C:\\Data\\ArgoData\\Figures\\"
 data_dir = "C:\\Data\\ArgoData\\"  # mainly for topography data
-figure_setup = "EAR_UseCase" #"EAR_UseCase" #"EARISE_deployment"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
+figure_setup = "AllFinnishPolish" #"EAR_UseCase" #"EARISE_deployment"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
 #figure_setup ="Bothnian Sea"  #"EARISE_BP" #May change dir_to_plot
 
-make_leaflet = True
+make_leaflet = False
 
-figure_name="ArgoPlot"  #default value
+figure_name="Bothnian_Sea"  #default value
 plot_contours = False  # default. specific etups may change this
 draw_labels = True
 draw_EEZ = False
@@ -40,6 +40,7 @@ shore_resolution = "50m"  # "10m" "50m"
 fig_dpi = 300
 line_width = 1.2  #0.7
 line_alpha = 0.8
+marker_alpha = 1.0
 marker_end_size = 5
 marker_start_size = 5
 marker_size = 5
@@ -71,6 +72,25 @@ plot_points = True
 start=mp.dates.datetime.datetime(2000,3,1)
 end=mp.dates.datetime.datetime(2230,5,5)
 figure_size=(10,5)  #default value!
+
+if(figure_setup == "Bothnian Sea Example"):
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\ArvorCDemo\\" 
+    line_alpha = 0.3
+    marker_alpha = 0.3
+    plot_points = False
+    plot_legends = False
+    bathy_max = 400 # meters
+    figure_size=(12,10)
+    all_colors = ['#000000']*13 +['#ff0000']
+    shore_resolution = "10m"  # "10m" "50m"
+    fig_dpi  =300
+    line_width = 1.0  #0.7    
+    start=mp.dates.datetime.datetime(2010,3,1)
+    end=mp.dates.datetime.datetime(2230,5,5)
+    figure_name="FMIBothnianSea"
+    lon_min=17;lat_min=60;lon_max=22;lat_max=63;
+    
+
 if(figure_setup == "ArvorC"):
     start=mp.dates.datetime.datetime(2019,3,1)
     end=mp.dates.datetime.datetime(2230,5,5)
@@ -214,9 +234,19 @@ if(figure_setup == "BS_ISA"):
     figure_size=np.array((12,10))*0.5
     dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BS_ICE\\"
     
+if(figure_setup == "AllFinnishPolish"):
+    lon_min=10;lat_min=53;lon_max=30.5;lat_max=66;
+    figure_name = 'AllBalticFloats'
+    marker_size = 0
+    line_width = 0.8
+    legend_size = 8
+    figure_size=(12,10)
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\AllFinnishPolish\\"
+
 if(figure_setup == "AllFinnish"):
     lon_min=10;lat_min=53;lon_max=30.5;lat_max=66;
     figure_name = 'AllFinnishFloats'
+    marker_size = 0
     figure_size=(12,10)
     dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\AllFinnish\\"
     
@@ -426,9 +456,9 @@ if plot_routes:
             plt.plot(lon_dat,lat_dat,color=col,linewidth=line_width, alpha=line_alpha,\
                      transform = ccrs.PlateCarree())
             plt.plot(lon_dat[-1],lat_dat[-1],'x',color=col,markersize=marker_end_size,\
-                     alpha=1.0, transform = ccrs.PlateCarree())
+                     alpha=marker_alpha, transform = ccrs.PlateCarree())
             plt.plot(lon_dat[0],lat_dat[0],'o',color=col,markersize=marker_start_size,\
-                     alpha=1.0,label=lab, transform = ccrs.PlateCarree())
+                     alpha=marker_alpha,label=lab, transform = ccrs.PlateCarree())
             if(plot_points):
                 plt.plot(lon_dat,lat_dat,'.',color=col,markersize=marker_size,\
                          alpha=line_alpha, transform = ccrs.PlateCarree())

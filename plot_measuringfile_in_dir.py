@@ -136,7 +136,7 @@ if do_plot:
        
     if(draw_EEZ):
         ax.add_wms('http://geo.vliz.be/geoserver/MarineRegions/wms?',\
-                   layers='eez_boundaries', alpha = 0.5)
+                   layers='eez_boundaries', alpha = 1.0)
             
     if draw_measuring_points:
         plt.plot(data[lon_i], data[lat_i], '.', transform = ccrs.PlateCarree(), zorder = 4, color = 'b', markersize= 3.0,alpha=0.002)
