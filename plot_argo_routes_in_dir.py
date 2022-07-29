@@ -19,22 +19,24 @@ import xarray as xr
 import argohelper as ah
 import cmocean as cmo
 from itertools import cycle
-
+import random # when generating colors for some trajectories
 import folium # only needed for interactive leaflet maps
 from PIL import Image # only needed for interactive leaflet maps
 
 dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\" #default value
 output_dir = "C:\\Data\\ArgoData\\Figures\\"
 data_dir = "C:\\Data\\ArgoData\\"  # mainly for topography data
-figure_setup = "AllFinnishPolish" #"EAR_UseCase" #"EARISE_deployment"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
+figure_setup = "AllFinnishPolishGerman" #"EAR_UseCase" #"EARISE_deployment"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
 #figure_setup ="Bothnian Sea"  #"EARISE_BP" #May change dir_to_plot
 
 make_leaflet = False
-
-figure_name="Bothnian_Sea"  #default value
+random_seed = 0  #can be changed in setups. Set so that plots are identical in consqeuent runs.
+figure_name="AllFinnishPolish"  #default value
 plot_contours = False  # default. specific etups may change this
 draw_labels = True
 draw_EEZ = False
+bathy_colormap = cmo.cm.deep
+color_select_function = None
 contour_levels = [50,100,150,200,250,300]
 shore_resolution = "50m"  # "10m" "50m"
 fig_dpi = 300
@@ -64,7 +66,6 @@ all_colors= ["#ff0000","#000000","#0000ff",\
              "#aa0055", "#50ff50", "#ff5050",\
              "#5050ff", "#505000", "#500050",\
              "#005050", "#50ff00", "#ff5000"]
-bathy_colormap = cmo.cm.deep
 plot_bathymetry=True
 plot_legends=True
 plot_routes=True
@@ -72,6 +73,107 @@ plot_points = True
 start=mp.dates.datetime.datetime(2000,3,1)
 end=mp.dates.datetime.datetime(2230,5,5)
 figure_size=(10,5)  #default value!
+
+
+def select_color_by_nation(list_of_floats):
+    colors = []
+    var_veight=0.7
+    for i in list_of_floats:
+        variation = random.random()
+        new_color = (1.0,1.0,1.0)
+        if(i.startswith('690')):
+            new_color = (var_veight*variation,
+                         var_veight*variation,
+                         0.5+variation*var_veight*0.5)
+        if(i.startswith('390')or i.startswith('6902036')):
+            new_color = (0.5+variation*var_veight*0.5,
+                         var_veight*variation,
+                         var_veight*variation)
+        if(i.startswith('7900')):
+            new_color = (0.5*var_veight*variation,
+                         0.2+variation*var_veight*0.5,
+                         0.5*var_veight*variation)
+        # if(i.startswith('3901940') or i.startswith('3902137') or\
+        #    i.startswith('3902133') or i.startswith('3902134')):
+        #     new_color = (0.5+variation*var_veight*0.5,
+        #                  var_veight*variation,
+        #                  0.5+variation*var_veight*0.5)
+        
+        colors.append(new_color)
+    return colors
+
+
+
+if(figure_setup == "WP4_BP"):
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\WP4_BalticProper\\" 
+    line_alpha = 1.0
+    marker_alpha = 1.0
+    plot_points = False
+    plot_legends = True
+    replace_labels = {'6903706':'6903706 *',\
+                      }
+    bathy_max = 300 # meters
+    figure_size=(10,10)
+    # all_colors = ['#000000']*13 +['#ff0000']
+    shore_resolution = "10m"  # "10m" "50m"
+    fig_dpi  =300
+    line_width = 1.0  #0.7    
+    start=mp.dates.datetime.datetime(2010,3,1)
+    end=mp.dates.datetime.datetime(2230,5,5)
+    figure_name="WP4BalticProper_routes"
+    lon_min=18;lat_min=56;lon_max=21;lat_max=59;
+    center = [(lon_min+lon_max)*0.5, (lat_min+lat_max)*0.5]
+    requested_proj = ccrs.TransverseMercator(\
+           central_latitude = center[1],\
+           central_longitude = center[0])
+
+
+
+if(figure_setup == "RBR_BothnianSea"):
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\RBR_BothnianSea\\" 
+    line_alpha = 1.0
+    marker_alpha = 1.0
+    plot_points = False
+    plot_legends = True
+    bathy_max = 400 # meters
+    figure_size=(10,10)
+    replace_labels = {'6903710':'6903710 *',\
+                      }
+    # all_colors = ['#000000']*13 +['#ff0000']
+    shore_resolution = "10m"  # "10m" "50m"
+    fig_dpi  =300
+    line_width = 1.0  #0.7    
+    start=mp.dates.datetime.datetime(2010,3,1)
+    end=mp.dates.datetime.datetime(2230,5,5)
+    figure_name="RBRBothnianSea_routes"
+    lon_min=17;lat_min=60;lon_max=22;lat_max=63;
+    center = [(lon_min+lon_max)*0.5, (lat_min+lat_max)*0.5]
+    requested_proj = ccrs.TransverseMercator(\
+           central_latitude = center[1],\
+           central_longitude = center[0])
+
+if(figure_setup == "RBR_BalticProper"):
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\RBR_BalticProper\\" 
+    line_alpha = 1.0
+    marker_alpha = 1.0
+    plot_points = False
+    plot_legends = True
+    replace_labels = {'6903709':'6903709 *',\
+                      }
+    bathy_max = 300 # meters
+    figure_size=(10,10)
+    # all_colors = ['#000000']*13 +['#ff0000']
+    shore_resolution = "10m"  # "10m" "50m"
+    fig_dpi  =300
+    line_width = 1.0  #0.7    
+    start=mp.dates.datetime.datetime(2010,3,1)
+    end=mp.dates.datetime.datetime(2230,5,5)
+    figure_name="RBRBalticProper_routes"
+    lon_min=18;lat_min=56;lon_max=21;lat_max=59;
+    center = [(lon_min+lon_max)*0.5, (lat_min+lat_max)*0.5]
+    requested_proj = ccrs.TransverseMercator(\
+           central_latitude = center[1],\
+           central_longitude = center[0])
 
 if(figure_setup == "Bothnian Sea Example"):
     dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\ArvorCDemo\\" 
@@ -234,6 +336,19 @@ if(figure_setup == "BS_ISA"):
     figure_size=np.array((12,10))*0.5
     dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BS_ICE\\"
     
+if(figure_setup == "AllFinnishPolishGerman"):
+    lon_min=10;lat_min=53;lon_max=30.5;lat_max=66;
+    figure_name = 'AllBalticFloatsFinPolGer'
+    marker_size = 0
+    line_width = 0.8
+    line_alpha = 0.75
+    legend_size = 8
+    figure_size=(12,10)
+    color_select_function = select_color_by_nation
+    bathy_colormap = cmo.cm.gray_r
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\AllFinnishPolishGerman\\"
+
+
 if(figure_setup == "AllFinnishPolish"):
     lon_min=10;lat_min=53;lon_max=30.5;lat_max=66;
     figure_name = 'AllBalticFloats'
@@ -327,6 +442,7 @@ if(figure_setup == "EARISE_BP"):
 
 
 
+random.seed(random_seed)
 fig=plt.figure(figsize=figure_size)
 plt.clf()
 #bmap = Basemap(llcrnrlon=lon_min,llcrnrlat=lat_min,urcrnrlon=lon_max,urcrnrlat=lat_max, \
@@ -370,6 +486,14 @@ files_to_plot=[i for i in os.listdir(dir_to_plot) if i.endswith('.nc')]
 labels= list(map(lambda x: re.search('\d{7}',files_to_plot[x]).group(0),range(len(files_to_plot))))
 colors=all_colors[0:len(files_to_plot)]
 print(files_to_plot,labels)
+if(color_select_function is not None):
+    colors = color_select_function(labels)
+    
+#Sort the files based on label
+tmp = sorted(zip(labels, files_to_plot, colors))
+labels = [i[0] for i in tmp]
+files_to_plot = [i[1] for i in tmp]
+colors = [i[2] for i in tmp]
 
 #TOPOGRAPHY EXPERIMENT
 if plot_bathymetry:
@@ -401,7 +525,6 @@ if(draw_EEZ):
                layers='eez_boundaries')
         
 color_stack = colors[:]
-
 if make_leaflet:
     map_center = [(lat_min+lat_max)/2.0, (lon_min+lon_max)/2.0]
     map_radius = ah.distance(map_center, [lat_min,lon_min])
@@ -444,10 +567,10 @@ if plot_routes:
         d.close()
 #        x,y=bmap(lon_dat,lat_dat)
     #    bmap.plot(x,y,color=col,linewidth=2,alpha=0.5)
-        print(len(lon_dat))
-        print(label,d[time_var].min(),d[time_var].max() )
+#        print(len(lon_dat))
+ #       print(label,d[time_var].min(),d[time_var].max() )
+        col = color_stack.pop(0)
         if(len(lon_dat)>0):
-            col = color_stack.pop(0)
 #            bmap.plot(x,y,color=col,linewidth=line_width, alpha=line_alpha)
 #            bmap.plot(x[-1],y[-1],'x',color=col,markersize=marker_end_size,alpha=1.0)
 #            bmap.plot(x[0],y[0],'o',color=col,markersize=marker_start_size,alpha=1.0,label=lab)
@@ -462,7 +585,9 @@ if plot_routes:
             if(plot_points):
                 plt.plot(lon_dat,lat_dat,'.',color=col,markersize=marker_size,\
                          alpha=line_alpha, transform = ccrs.PlateCarree())
-            print(lon_dat[-1],lat_dat[-1], lab)
+        else:
+            print(lab,'failed!')
+#            print(lon_dat[-1],lat_dat[-1], lab)
     #    print lab, mp.dates.num2date(a.obs['ape']['date'][0]).date() \
     #             , mp.dates.num2date(a.obs['ape']['date'][-1]).date()
         if make_leaflet:
