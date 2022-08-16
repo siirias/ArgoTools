@@ -87,6 +87,19 @@ def get_closest(depth,variable,target,tolerance=np.nan):
     else:
         return (np.nan, np.nan)
 """
+
+def profile_bias(orig_depth,orig_data, comp_depth, comp_data): 
+    data,depths,orig_data=difference_profile(orig_depth,orig_data, comp_depth, comp_data)           
+    total_diff=0
+    elements=0
+    for i in range(len(depths)):
+        difference=data[i]
+        total_diff+=difference
+        elements+=1
+    if elements>0:
+       total_diff/=elements
+    return total_diff
+
 def compare_profiles(orig_depth,orig_data, comp_depth, comp_data): 
     data,depths,orig_data=difference_profile(orig_depth,orig_data, comp_depth, comp_data)           
     total_diff=0

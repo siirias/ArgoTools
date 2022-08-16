@@ -20,67 +20,90 @@ from itertools import cycle  # used to cycle a short list to match others
 import time #Just to track how long the script runs
 
 #Bothnian Sea
-# indir1 = "C:/Data/ArgoData/ArgosForPlot/RBR_BothnianSea/"
-# indir2 = "C:/Data/ArgoData/ArgosForPlot/RBR_BothnianSea/"
-# infile1 = "GL_PR_PF_6903710.nc"
-# infiles2 = ["GL_PR_PF_6903711.nc"]
+indir1 = "C:/Data/ArgoData/ArgosForPlot/RBR_BothnianSea/"
+indir2 = "C:/Data/ArgoData/ArgosForPlot/RBR_BothnianSea/"
+infile1 = "GL_PR_PF_6903710.nc"
+infiles2 = ["GL_PR_PF_6903711.nc", "GL_PR_PF_6903698.nc", "GL_PR_PF_6903699.nc",
+            "GL_PR_PF_6903702.nc"]
+#infiles2 = ["GL_PR_PF_6903711.nc"]
 
 # #Gotland Deep
-indir1 = "C:/Data/ArgoData/ArgosForPlot/RBR_BalticProper/"
-indir2 = "C:/Data/ArgoData/ArgosForPlot/RBR_BalticProper/"
-infile1 = "GL_PR_PF_6903709.nc"
-#infile2 = "GL_PR_PF_6903708.nc"
-infiles2 = ["GL_PR_PF_6903706.nc", "GL_PR_PF_6903708.nc"]
+# indir1 = "C:/Data/ArgoData/ArgosForPlot/RBR_BalticProper/"
+# indir2 = "C:/Data/ArgoData/ArgosForPlot/RBR_BalticProper/"
+# infile1 = "GL_PR_PF_6903709.nc"
+# #infile2 = "GL_PR_PF_6903708.nc"
+# infiles2 = ["GL_PR_PF_6903706.nc", "GL_PR_PF_6903708.nc", "GL_PR_PF_3902110.nc",
+#             "GL_PR_PF_6903709.nc", "GL_PR_PF_6904116.nc", "GL_PR_PF_6904117.nc",
+#             "GL_PR_PF_6904226.nc", "GL_PR_PF_7900587.nc"]
 
 
 params_list = [['TEMP'], ['PSAL']]
 
 output_dir = "C:/Data/ArgoData/Figures/"
-
+csv_decimal = ','
+csv_sep = ';'
+fig_dpi = 300
 plot_range = 20.0 
 t_s_coeff = 3.0  # how many km one day corresponds, while calculating distance
 example_number = 8
 start_time = time.time()
 
+def get_prof_param(filename, param, prof_no):
+    #small tool to get from file one parameter of given profile number
+    with xr.open_dataset(filename) as f:
+        if param not in f:
+            if(param == 'TEMP'):
+                param = 'TEMP_ADJUSTED'
+            elif(param == 'TEMP_ADJUSTED'):
+                param = 'TEMP'
+            elif(param == 'PSAL'):
+                param = 'PSAL_ADJUSTED'
+            elif(param == 'PSAL_ADJUSTED'):
+                param = 'PSAL'
+        return f[param][prof_no]
+        
+def calculate_match_fitness(filename1, filename2, 
+                            prof_no1, prof_no2, 
+                            parameters = ['TEMP', 'PSAL'] ):
+    fitnesses = {}
+    for param in parameters:
+        prof1_y = get_prof_param(filename1, param, prof_no1)
+        prof1_x = get_prof_param(filename1, 'PRES', prof_no1)
+        prof2_y = get_prof_param(filename2, param, prof_no2)
+        prof2_x = get_prof_param(filename2, 'PRES', prof_no2)
+        fitnesses[param] = ah.compare_profiles(prof1_y, prof1_x, prof2_y, prof2_x)
+    return fitnesses
+
+def calculate_match_bias(filename1, filename2, 
+                            prof_no1, prof_no2, 
+                            parameters = ['TEMP', 'PSAL'] ):
+    biases = {}
+    for param in parameters:
+        prof1_y = get_prof_param(filename1, param, prof_no1)
+        prof1_x = get_prof_param(filename1, 'PRES', prof_no1)
+        prof2_y = get_prof_param(filename2, param, prof_no2)
+        prof2_x = get_prof_param(filename2, 'PRES', prof_no2)
+        biases[param] = ah.profile_bias(prof1_y, prof1_x, prof2_y, prof2_x)
+    return biases
+    
+
 def plot_comparison_for_profiles(filename1, filename2, prof_no1, prof_no2,\
                 ax = None, parameters = ['TEMP'], figsize = [5,5], \
                 col1 = 'r', col2 = 'b'):
     for param in parameters:
-        prof1 = xr.open_dataset(filename1)
-        prof2 = xr.open_dataset(filename2)
-        param1 = param
-        param2 = param
-        if param1 not in prof1:
-            if(param1 == 'TEMP'):
-                param1 = 'TEMP_ADJUSTED'
-            elif(param1 == 'TEMP_ADJUSTED'):
-                param1 = 'TEMP'
-            elif(param1 == 'PSAL'):
-                param1 = 'PSAL_ADJUSTED'
-            elif(param1 == 'PSAL_ADJUSTED'):
-                param1 = 'PSAL'
-        if param2 not in prof2:
-            if(param2 == 'TEMP'):
-                param2 = 'TEMP_ADJUSTED'
-            elif(param2 == 'TEMP_ADJUSTED'):
-                param2 = 'TEMP'
-            elif(param2 == 'PSAL'):
-                param2 = 'PSAL_ADJUSTED'
-            elif(param2 == 'PSAL_ADJUSTED'):
-                param2 = 'PSAL'
-
+        prof1_y = get_prof_param(filename1, param, prof_no1)
+        prof1_x = get_prof_param(filename1, 'PRES', prof_no1)
+        prof2_y = get_prof_param(filename2, param, prof_no2)
+        prof2_x = get_prof_param(filename2, 'PRES', prof_no2)
         if(not ax):
             plt.figure(figsize = figsize)
         else:
             plt.sca(ax)
-        plt.plot(prof1[param1][prof_no1],prof1['PRES'][prof_no1], col1)
-        plt.plot(prof2[param2][prof_no2],prof2['PRES'][prof_no2], col2)
+        plt.plot(prof1_y,prof1_x, col1)
+        plt.plot(prof2_y,prof2_x, col2)
         plt.gca().invert_yaxis()
         plt.grid(True)
-        # filename = "{}_{}_{}".format("Comparisons",float_no,val2)
-        # plt.savefig(output_dir+filename+'.png' ,\
-        #             facecolor='w',dpi=fig_dpi,bbox_inches='tight')    
-        return plt.gca()
+    return plt.gca()
 
 best_matches = {} 
 for infile2 in infiles2:
@@ -120,8 +143,14 @@ for infile2 in infiles2:
                 cycle([WMO_original]),
                 cycle([WMO_compare])
                 ),
+
+
                 columns = ["prof1", "prof2", "distance", "distance_t", 
-                           "distance_s", "infile2", "WMO1", "WMO2"])
+                           "distance_s", "infile2", "WMO1", "WMO2",
+                           
+                          ])
+    
+    
     matches = matches.sort_values("distance")
     matches = matches.reset_index(drop = True)
 
@@ -165,6 +194,10 @@ for infile2 in infiles2:
     
     # fig2 = plt.figure(figsize = (15,5))
     # plt.plot(main_profile['TIME'], closest_values)
+    filename = "{}_{}_{}".format("distance",WMO_original, WMO_compare)
+    plt.savefig(output_dir+filename+'.png' ,\
+                facecolor='w',dpi=fig_dpi,bbox_inches='tight')
+    print("saved {}".format(output_dir+filename+'.png'))
 
 best_of_best = pd.concat(best_matches).sort_values('distance')
 best_of_best = best_of_best.reset_index(drop = True)
@@ -174,6 +207,8 @@ for values, col1, col2 in zip(params_list,['r','c'],['b','m']):
     comparisons_to_plot = min(example_number,best_of_best.shape[0])
     fig3, axes3 = plt.subplots(nrows = 1, ncols =comparisons_to_plot, 
                                figsize = (3*comparisons_to_plot,5))
+    fitnesses = []
+    biases = []
     curr_pair = 0
     for ax in axes3:
         the_match = best_of_best.iloc[curr_pair]
@@ -185,13 +220,36 @@ for values, col1, col2 in zip(params_list,['r','c'],['b','m']):
                                      parameters = values,
                                      col1 = col1,
                                      col2 = col2)
-        ax.title.set_text('{} vs {}-{}\n{}\n{:.1f} km, {:.1f} d'.format(
+        ax.title.set_text('{} vs {} WMO{}\n{}\n{:.1f} km, {:.1f} d'.format(
             the_match['prof1'],the_match['prof2'], the_match['WMO2'],
             values[0],
             the_match['distance_s'],
-            the_match['distance_t'],
+            np.abs(the_match['distance_t']),
             ))
+        filename = "{}_{}_{}".format("profiles",the_match['WMO1'], values[0])
+        plt.savefig(output_dir+filename+'.png' ,\
+                    facecolor='w',dpi=fig_dpi,bbox_inches='tight')
+        print("saved {}".format(output_dir+filename+'.png'))
+        fitnesses.append(calculate_match_fitness(
+                                    indir1 + infile1,
+                                    indir2 + the_match['infile2'],
+                                    the_match['prof1'],
+                                    the_match['prof2']))
+        biases.append(calculate_match_bias(
+                                    indir1 + infile1,
+                                    indir2 + the_match['infile2'],
+                                    the_match['prof1'],
+                                    the_match['prof2']))
         curr_pair += 1
-            
+analysis_data = pd.DataFrame(zip([x['TEMP'] for x in biases], [x['PSAL'] for x in biases],
+                                 [x['TEMP'] for x in fitnesses], [x['PSAL'] for x in fitnesses]), 
+                             columns=['TEMP_bias','PSAL_bias', 'TEMP_fit','PSAL_fit'])
 
-completion_time = time.time() - start_time
+print(analysis_data)
+print(analysis_data.describe())
+filename = "{}_{}.csv".format("analysis",the_match['WMO1'])
+tmp = analysis_data.to_csv(
+    line_terminator='\n', decimal = csv_decimal, sep = csv_sep)
+tmp += analysis_data.describe().to_csv(
+    line_terminator='\n', decimal = csv_decimal, sep = csv_sep)
+open(output_dir+filename,'w').writelines(tmp)
