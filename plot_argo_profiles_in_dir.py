@@ -17,13 +17,14 @@ import argohelper as ah
 import cmocean as cmo
 import plotly.express as px #Only needed for plotly output
 import plotly.io as pio     #Only needed for plotly output
+import gsw
 
 make_plotly = True
 close_figures = False
 file_format = "new_server"  # "old_server" "new_server"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\arvorc\\"
 #dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\"
-dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\RBR_BalticProper\\"
+dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\RBR_BothnianSea\\"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\Cape\\"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BGC_BP\\"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\RBR\\"
@@ -37,12 +38,13 @@ tl_max = None #23.0  # so usualy work for just one at a time.
 fig_dpi = 300
 c_map = 'viridis'
 interp_depths = np.array(np.arange(0,max_depth,0.1))
-plot_profile_timelines = True
+plot_profile_timelines = False
 plot_profile_clusters = True
 cluster_grid = True
 profile_cloud_alpha = 0.2
 enhance_temperature_min = -100.0 # -100.0 would ignore this
-variables = ['TEMP','PSAL']
+variables = ['TEMP','PSAL_ADJUSTED', 'DENSITY']
+#variables = ['DENSITY']
 #variables = ['TEMP','PSAL','DOX2', 'BBP700', 'CPHL_ADJUSTED', 'CDOM', \
 #             'DOWN_IRRADIANCE380', 'DOWN_IRRADIANCE412', 'DOWN_IRRADIANCE490']
 #start=mp.dates.datetime.datetime(1000,5,5)
@@ -50,7 +52,21 @@ variables = ['TEMP','PSAL']
 
 start=mp.dates.datetime.datetime(1021,6,29)
 end=mp.dates.datetime.datetime(3021,12,20)
-
+def calculate_density(data, temperature_field = 'TEMP', 
+                      salinity_field = 'PSAL',
+                      pressure_field = 'PRES'):
+    #returns a field that can be added into loaded
+    #argo data. 
+    temperature = data[temperature_field]
+    salinity = data[salinity_field]
+    pressure = data[pressure_field]
+    density = gsw.rho(salinity, temperature, pressure)
+    density.attrs.update({'standard_name':"sea_water_density",
+                          'long_name':"sea water density",
+                          'units':"kgm-3"})
+    return density
+    
+    
 if make_plotly:
     pio.renderers.default='browser'
     out_file = "{}.html".format(re.search("\\\([^\\\]*)\\\$",\
@@ -67,6 +83,8 @@ if plot_profile_timelines:
         d=xr.open_dataset(dir_to_plot+f)
         print("Availabe variables: {}".format(list(d.keys())))
         for var in variables:
+            if var == 'DENSITY': #special case, let's calculate
+                d[var] = calculate_density(d)
             if(var in d.keys()):
                 variable_print_name = d[var].attrs['long_name']
                 variable_print_unit = d[var].attrs['units']
@@ -134,6 +152,8 @@ if plot_profile_clusters:
     for f in files_to_plot:
         for var in variables:
             d=xr.open_dataset(dir_to_plot+f)
+            if var == 'DENSITY': #special case, let's calculate
+                d[var] = calculate_density(d)
             if(var in d.keys()):
                 variable_print_name = d[var].attrs['long_name']
                 variable_print_unit = d[var].attrs['units']
