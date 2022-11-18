@@ -36,6 +36,23 @@ def abs_suolaisuus(salt_p,lon,lat):
     a_salt = gsw.SA_from_SP_Baltic(salt_p,lon,lat)
     return np.asarray(a_salt)
 
+def o2_umolkg_to_mll(o2_values, t_values, s_values, lon, lat, pressure = 0.0):
+    """
+    Molar volume at STP = 22.391 l
+    Molar weight of oxygen = 31.998 g
+    Atomic Mass of oxygen = 15.994 g/mol
+    1 µmol O2= 0.022391 ml
+    1 ml/l = 10​00/22.391 = 44.661 µmol/l
+    1 mg/l = 22.391 ml/31.998 = 0.700 ml/l
+    1 mg-at/l = 15.994x22.391/31.998 = 11.192 ml    
+    from: https://www.ices.dk/data/tools/Pages/Unit-conversions.aspx
+    """
+    abs_S = abs_suolaisuus(s_values, lon, lat)
+    Conserv_T = t_values
+    density = gsw.density.rho(abs_S, Conserv_T, pressure)*0.001 # kg/dm^3
+    new_o = 0.022391*o2_values/density
+    return new_o
+
 def compare_profiles_deprecated(orig_depth,orig_data, comp_depth, comp_data):
     #remove masked values
     if type(orig_depth)==np.ma.core.MaskedArray:
@@ -147,7 +164,8 @@ def difference_profile(orig_depth,orig_data, comp_depth, comp_data):
         comp_depth=tmp_dep.copy()
         comp_data=tmp_dat.copy()
         flipping=-1.0
-    
+
+    print(orig_depth)
     orig_depth=np.abs(np.array(orig_depth))
     comp_depth=np.abs(np.array(comp_depth))
     min_depth=np.nanmax([np.nanmin(orig_depth),np.nanmin(comp_depth)])
