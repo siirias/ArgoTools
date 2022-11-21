@@ -26,7 +26,7 @@ from PIL import Image # only needed for interactive leaflet maps
 dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\" #default value
 output_dir = "C:\\Data\\ArgoData\\Figures\\"
 data_dir = "C:\\Data\\ArgoData\\"  # mainly for topography data
-figure_setup = "AllFinnishPolishGerman" #"EAR_UseCase" #"EARISE_deployment"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
+figure_setup = "AllFinnish" #"EAR_UseCase" #"EARISE_deployment"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
 #figure_setup ="Bothnian Sea"  #"EARISE_BP" #May change dir_to_plot
 
 make_leaflet = False
@@ -364,6 +364,10 @@ if(figure_setup == "AllFinnish"):
     marker_size = 0
     figure_size=(12,10)
     dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\AllFinnish\\"
+    center = [(lon_min+lon_max)*0.5, (lat_min+lat_max)*0.5]
+    requested_proj = ccrs.TransverseMercator(\
+           central_latitude = center[1],\
+           central_longitude = center[0])    
     
 if(figure_setup == "NationalReport2020"):
     lon_min=10;lat_min=53;lon_max=30.5;lat_max=66;
