@@ -5,7 +5,6 @@ Created on Mon Apr 11 18:11:08 2016
 @author: siirias
 """
 import sys
-sys.path.insert(0,'D:\\Data\\svnfmi_merimallit\\qa\\nemo')
 import os
 import re
 import matplotlib as mp
@@ -19,15 +18,15 @@ import plotly.express as px #Only needed for plotly output
 import plotly.io as pio     #Only needed for plotly output
 import gsw
 
-make_plotly = True
+make_plotly = False
 close_figures = False
-file_format = "old_server"  # "old_server" "new_server"
+file_format = "new_server"  # "old_server" "new_server"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\arvorc\\"
 #dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\"
-dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\ice_examples\\"
+#dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\ice_examples\\"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\Cape\\"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BGC_BP\\"
-#dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\RBR\\"
+dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\RBR\\"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BarentsSea\\"
 output_dir = "C:\\Data\\ArgoData\\Figures\\"
 figure_size_timeline = (10,4)

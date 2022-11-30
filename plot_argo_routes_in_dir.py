@@ -26,12 +26,12 @@ from PIL import Image # only needed for interactive leaflet maps
 dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\" #default value
 output_dir = "C:\\Data\\ArgoData\\Figures\\"
 data_dir = "C:\\Data\\ArgoData\\"  # mainly for topography data
-figure_setup = "AllFinnish" #"EAR_UseCase" #"EARISE_deployment"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
+figure_setup = "RBR" #"EAR_UseCase" #"EARISE_deployment"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
 #figure_setup ="Bothnian Sea"  #"EARISE_BP" #May change dir_to_plot
 
 make_leaflet = False
 random_seed = 0  #can be changed in setups. Set so that plots are identical in consqeuent runs.
-figure_name="AllFinnishPolish"  #default value
+figure_name="RBR"  #default value
 plot_contours = False  # default. specific etups may change this
 draw_labels = True
 draw_EEZ = False
@@ -66,8 +66,8 @@ all_colors= ["#ff0000","#000000","#0000ff",\
              "#aa0055", "#50ff50", "#ff5050",\
              "#5050ff", "#505000", "#500050",\
              "#005050", "#50ff00", "#ff5000"]
-plot_bathymetry=True
-plot_legends=True
+plot_bathymetry=False
+plot_legends=False
 plot_routes=True
 plot_points = True
 start=mp.dates.datetime.datetime(2000,3,1)
@@ -219,9 +219,14 @@ if( figure_setup == "BGC_BP"):
 if( figure_setup == "RBR"):
     dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\RBR\\"
     figure_name = "RBR_BalticProper"
+    marker_size = 3
     lon_min=16;lat_min=53;lon_max=30.5;lat_max=66;
-    figure_size=(10,10)
-
+    figure_size=(4,5)
+    center = [(lon_min+lon_max)*0.5, (lat_min+lat_max)*0.5]
+    requested_proj = ccrs.TransverseMercator(\
+           central_latitude = center[1],\
+           central_longitude = center[0])
+        
 if(figure_setup == "NBalticProper"):
     figure_name="NorthernBalticProper"
     dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\NBalticProper\\" 
@@ -347,6 +352,8 @@ if(figure_setup == "AllFinnishPolishGerman"):
     color_select_function = select_color_by_nation
     bathy_colormap = cmo.cm.gray_r
     dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\AllFinnishPolishGerman\\"
+    center = [(lon_min+lon_max)*0.5, (lat_min+lat_max)*0.5]
+    requested_proj = ccrs.LambertAzimuthalEqualArea(center[0],center[1])
 
 
 if(figure_setup == "AllFinnishPolish"):
