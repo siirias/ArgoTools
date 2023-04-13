@@ -13,7 +13,7 @@ import numpy as np
 #from mpl_toolkits.basemap import Basemap
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
-
+import matplotlib.patches as mpatches
 from netCDF4 import Dataset
 import xarray as xr
 import argohelper as ah
@@ -26,9 +26,9 @@ from PIL import Image # only needed for interactive leaflet maps
 dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\" #default value
 output_dir = "C:\\Data\\ArgoData\\Figures\\"
 data_dir = "C:\\Data\\ArgoData\\"  # mainly for topography data
-figure_setup = "RBR" #"EAR_UseCase" #"EARISE_deployment"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
+figure_setup = "Barents Sea" #"EAR_UseCase" #"EARISE_deployment"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
 #figure_setup ="Bothnian Sea"  #"EARISE_BP" #May change dir_to_plot
-
+extras_to_plot = [] #[[19.5,58.6,20.6,59.2]]
 make_leaflet = False
 random_seed = 0  #can be changed in setups. Set so that plots are identical in consqeuent runs.
 figure_name="RBR"  #default value
@@ -61,7 +61,7 @@ requested_aspect = 'auto'
 replace_labels = {}
 all_colors= ["#ff0000","#000000","#0000ff",\
              "#00ff00","#007060","#d000d0",\
-             "#d00000","#888888","#ffff00",\
+             "#d00000","#88ff88","#ffff00",\
              "#ff00ff", "#00ffff","#600000",\
              "#aa0055", "#50ff50", "#ff5050",\
              "#5050ff", "#505000", "#500050",\
@@ -294,7 +294,25 @@ if(figure_setup == "Barents Sea"):
     lon_min=10;lat_min=75;lon_max=50.0;lat_max=80.0;
     center = [(lon_min+lon_max)*0.5, (lat_min+lat_max)*0.5]
     requested_proj = ccrs.LambertAzimuthalEqualArea(center[0],center[1])
-    figure_size=np.array((12,10))*0.5
+    figure_size=np.array((18,10))*0.5
+    marker_end_size = 5
+    marker_start_size = 5
+    marker_size = 5
+    all_colors= ["#ff0000","#000000","#0000ff", "#00ff00"]
+    bathy_colormap = 'gist_gray_r'
+
+if(figure_setup == "Barents Sea 2022"):
+    figure_name = 'FMI_Barents_Sea_Argos'
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\NationalReport2022_Barents\\" 
+    line_alpha = 0.5
+    plot_points = True
+    plot_legends = True
+    plot_bathymetry = False
+    bathy_max = 400 # meters
+    lon_min=10;lat_min=75;lon_max=50.0;lat_max=80.0;
+    center = [(lon_min+lon_max)*0.5, (lat_min+lat_max)*0.5]
+    requested_proj = ccrs.LambertAzimuthalEqualArea(center[0],center[1])
+    figure_size=np.array((12,10))*0.25
     marker_end_size = 5
     marker_start_size = 5
     marker_size = 5
@@ -340,6 +358,40 @@ if(figure_setup == "BS_ISA"):
     figure_name = 'BalticSeaISA'
     figure_size=np.array((12,10))*0.5
     dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BS_ICE\\"
+
+if(figure_setup == "JustTheMap"):
+    lon_min=10;lat_min=53;lon_max=30.5;lat_max=66;
+    figure_name = 'Balticbathymetry'
+    marker_size = 0
+    line_width = 0.8
+    line_alpha = 0.75
+    legend_size = 8
+    figure_size=(12,10)
+    color_select_function = select_color_by_nation
+    bathy_colormap = cmo.cm.deep
+    plot_bathymetry = True
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\empty\\"
+    center = [(lon_min+lon_max)*0.5, (lat_min+lat_max)*0.5]
+    requested_proj = ccrs.LambertAzimuthalEqualArea(center[0],center[1])
+
+if(figure_setup == "DeploymentPlan"):
+    lon_min=18;lat_min=58.5;lon_max=23.0;lat_max=60.0;
+    figure_name = 'DeploymentPlan'
+    marker_size = 0
+    line_width = 0.8
+    line_alpha = 0.75
+    legend_size = 8
+    figure_size=(12,10)
+    bathy_colormap = cmo.cm.deep
+    plot_bathymetry = False
+    shore_resolution = "10m"  # "10m" "50m"
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\empty\\"
+    center = [(lon_min+lon_max)*0.5, (lat_min+lat_max)*0.5]
+    requested_proj = ccrs.LambertAzimuthalEqualArea(center[0],center[1])
+    draw_EEZ = True
+#    extras_to_plot = [[19.5,58.6,20.6,59.2],[20.3106,58.8806]]
+    extras_to_plot = [[20.3106,58.8806]]
+
     
 if(figure_setup == "AllFinnishPolishGerman"):
     lon_min=10;lat_min=53;lon_max=30.5;lat_max=66;
@@ -391,7 +443,21 @@ if(figure_setup == "NationalReport2021"):
     end=mp.dates.datetime.datetime(2230,5,5)
     figure_name = 'NationalReport2021'
     figure_size=(12,9)
+    draw_EEZ = True
+    plot_bathymetry = True
     dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\NationalReport2021\\"
+    bathy_colormap = 'gist_gray_r'
+    
+if(figure_setup == "NationalReport2022"):
+    lon_min=10;lat_min=53;lon_max=30.5;lat_max=66;
+    start=mp.dates.datetime.datetime(2010,1,1)
+    end=mp.dates.datetime.datetime(2230,5,5)
+    figure_name = 'NationalReport2022'
+    figure_size=(12,9)
+    plot_legends = True
+    draw_EEZ = True
+    plot_bathymetry = True
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\NationalReport2022\\"
     bathy_colormap = 'gist_gray_r'
     
 if(figure_setup == "GotlandD"):
@@ -533,7 +599,7 @@ if plot_bathymetry:
    
 if(draw_EEZ):
     ax.add_wms('http://geo.vliz.be/geoserver/MarineRegions/wms?',\
-               layers='eez_boundaries')
+               layers='eez_boundaries', alpha = 0.4)
         
 color_stack = colors[:]
 if make_leaflet:
@@ -618,11 +684,31 @@ if plot_routes:
 if plot_legends:
     #plt.legend(bbox_to_anchor=(1.0,0.5),numpoints=1)
     plt.legend(loc='lower right',numpoints=1,prop={'size': legend_size})
+if len(extras_to_plot)>0: #plot some points or rectangles
+    for extra in extras_to_plot:
+        if(len(extra) == 4): #rectangle
+            p = mpatches.Rectangle(extra[:2],
+                               extra[2]-extra[0],
+                               extra[3]-extra[1],
+                               transform = ccrs.PlateCarree(),
+                               alpha=0.3,
+                               color='red' )
+            ax.add_patch(p)
+        if(len(extra) == 2): #a coordinate
+            plt.plot(extra[0],extra[1],
+                     'x',
+                     color='black',
+                     markersize=10.0,
+                     alpha=1.0,
+                     transform = ccrs.PlateCarree())
+
+
 plt.savefig(output_dir+figure_name+'.png' ,\
             facecolor='w',dpi=fig_dpi,bbox_inches='tight')
 print("saved: {}".format(output_dir+figure_name+'.png'))
 #plt.savefig(output_dir+figure_name+'.eps' ,\
 #            facecolor='w',dpi=fig_dpi,bbox_inches='tight')
+            
 if make_leaflet:
     leaflet_map.save(output_dir+figure_name+'.html')
     print("saved: {}{}.html".format(output_dir,figure_name))

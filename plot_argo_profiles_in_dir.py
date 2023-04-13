@@ -26,19 +26,23 @@ file_format = "new_server"  # "old_server" "new_server"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\ice_examples\\"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\Cape\\"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BGC_BP\\"
-dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\RBR\\"
-#dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BarentsSea\\"
+#dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\AllFinnish\\"
+dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BarentsSea\\"
 output_dir = "C:\\Data\\ArgoData\\Figures\\"
-figure_size_timeline = (10,4)
-figure_size_profile = (7,10)
-max_depth = 120.0
+figure_size_timeline =(6,2.5) #(10,4)
+figure_size_profile = (3.5,5)#(7,10)
+
+timeline_xtics_rotation = 45.0  # 0.0
+timeline_xtics_fontsize = 8.0 #or none
+
+max_depth = 250.0
 tl_min = None #4.5   # fixes axes for each variable, 
 tl_max = None #23.0  # so usualy work for just one at a time.
 fig_dpi = 300
 c_map = 'viridis'
 interp_depths = np.array(np.arange(0,max_depth,0.1))
 plot_profile_timelines = True
-plot_profile_clusters = False
+plot_profile_clusters = True
 cluster_grid = True
 profile_cloud_alpha = 0.2
 enhance_temperature_min = -100.0 # -100.0 would ignore this
@@ -80,6 +84,13 @@ files_to_plot=[i for i in os.listdir(dir_to_plot) if i.endswith('.nc')]
 if plot_profile_timelines:
     for f in files_to_plot:
         d=xr.open_dataset(dir_to_plot+f)
+        if(not time_var in d.keys()): #gludge for different type of files
+            if 'JULD' in d.keys():
+                time_var = 'JULD'
+            elif 'TIME' in d.keys():
+                time_var = 'TIME'
+            else:
+                print("No suitable time variable!")
 #        print("Availabe variables: {}".format(list(d.keys())))
         for var in variables:
             if var == 'DENSITY': #special case, let's calculate
@@ -148,6 +159,12 @@ if plot_profile_timelines:
                     plt.title("Float "+float_name)
                     plt.ylabel(ah.axes_label_from_variable_name('PRES'))
                     plt.xlabel(ah.axes_label_from_variable_name(time_var))
+                    plt.xticks(rotation=timeline_xtics_rotation)
+                    xticks_labels = plt.gca().get_xticklabels()
+                    if(timeline_xtics_fontsize):
+                        # Set the font size for the tick labels
+                        for tick in xticks_labels:
+                            tick.set_fontsize(timeline_xtics_fontsize)
                     filename = "{}_{}_tl".format(float_name,var)
                     plt.savefig(output_dir+filename+'.png' ,\
                                 facecolor='w',dpi=fig_dpi,bbox_inches='tight')
@@ -162,6 +179,14 @@ if plot_profile_clusters:
     for f in files_to_plot:
         for var in variables:
             d=xr.open_dataset(dir_to_plot+f)
+            if(not time_var in d.keys()): #gludge for different type of files
+                if 'JULD' in d.keys():
+                    time_var = 'JULD'
+                elif 'TIME' in d.keys():
+                    time_var = 'TIME'
+                else:
+                    print("No suitable time variable!")
+            
             if var == 'DENSITY': #special case, let's calculate
                 d[var] = calculate_density(d)
             if(var in d.keys()):
