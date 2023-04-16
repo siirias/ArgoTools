@@ -1,5 +1,28 @@
 # -*- coding: utf-8 -*-
 """
+This script contains functions to check the surface salinity of profiles 
+in Argo floats, and generate plots to visualize the results. 
+
+The main purpose of this script is to determine if the surface salinity 
+of profiles in a given float exceeds pre-defined limits for the area 
+in which the float is located.
+
+Functions:
+- get_profiles(WMO): 
+    Returns a list of profiles for a given Argo float (identified by its WMO ID).
+- determine_dmqc_area(lat, lon): 
+    Determines the DMQC area for a given set of latitude and longitude coordinates.
+- plot_salinity_profiles(dataset, result, WMO): 
+    Generates a plot of salinity profiles for a given Argo float, 
+    with faulty profiles highlighted.
+- check_surface_salinity(dataset, WMO = None): 
+    Checks the surface salinity of profiles in a given dataset, 
+    and returns a list of profile numbers and a boolean indicating 
+    whether the profile is faulty.
+- check_surface_salinity_for_float(WMO, output_dir): 
+    Calls the above functions to check the surface salinity of profiles 
+    for a given Argo float, and generates a plot of the results.
+
 Created on Sun Apr 16 15:46:43 2023
 
 @author: siirias
@@ -11,21 +34,24 @@ import numpy as np
 import argopy
 from argopy import DataFetcher as ArgoDataFetcher
 
+
+# Define a function to retrieve profiles for a given WMO number using argopy
 def get_profiles(WMO):
     ArgoSet = ArgoDataFetcher().float([WMO])
     ds = ArgoSet.to_xarray()
     dsg = ds.groupby("CYCLE_NUMBER")
     return dsg
 
+# Define a function to plot salinity profiles
 def plot_salinity_profiles(dataset, result = None, WMO = None):
     colors = []
     if not result:
         result = [True]*len(dataset)
     for c in result:
-        if c[1]:
-            colors.append((0.0,0.4,0.4,0.1))
-        else:
-            colors.append((1.0,0.3,0.3,0.8))
+            if c[1]:
+                colors.append((0.0,0.4,0.4,0.1))  # Greenish color with transparency
+            else:
+                colors.append((1.0,0.3,0.3,0.8))  # Reddish color with transparency
             
     plt.figure()
     for data, color in zip(dataset,colors):
@@ -38,6 +64,8 @@ def plot_salinity_profiles(dataset, result = None, WMO = None):
     plt.xlabel("Salinity (PSU)")
     plt.grid()
 
+# Define a function to determine which DMQC area a 
+# given latitude and longitude coordinates belong to
 def determine_dmqc_area(lat, lon):
     areas = [
         {'name': 'BothnianBay',
@@ -66,6 +94,9 @@ def determine_dmqc_area(lat, lon):
                area = a['name']
                return area
 
+# A function to check surface salinity of Argo floats against 
+# predefined limits for each area in the Baltic Sea
+
 def check_surface_salinity(dataset, WMO = None):
     sss_limits ={'BothnianBay':4.0,
                  'BothnianSea':6.0,
@@ -80,6 +111,8 @@ def check_surface_salinity(dataset, WMO = None):
         lon = float(profile.LONGITUDE[0])
         area = determine_dmqc_area(lat, lon)
         sss_lim = sss_limits[area]
+        # Check if the surface salinity exceeds the limit 
+        # for pressures less than the maximum pressure determined as surface
         if(np.sum(profile.where(profile.PRES<max_pres).PSAL.values>sss_lim)>0):
             result.append((num,False))
             print(f"Profile {num} in WMO: {WMO} Faulty")
@@ -95,6 +128,6 @@ def check_surface_salinity_for_float(WMO, output_dir = "C:/Data/ArgoData/Figures
     plt.savefig(output_dir+filename+'.png' ,\
                 facecolor='w', dpi=300, bbox_inches='tight')
 #Example usage
-WMOS = [6903697, ]
+WMOS = [6903697, 6902020, 6902024]
 for WMO in WMOS:
     check_surface_salinity_for_float(WMO)
