@@ -10,15 +10,20 @@ Functions:
 
 Usage:
 - Parse a single calibration data file with ParseData function.
-- Use freo_to_c function to calculate conductivity from frequency and calibration data.
 - Use analyze_calibration_data function to analyze a directory of calibration data files for a single sensor.
-
+        analyze_calibration data reads calibration pdfs or extraced text. 
+        Pdf is preferred if it works.
+        
+        returns string containing the results, 
+        if output dir is given to function, it will allso write it out
+        in a file results_senor_<sensorNUM>.txt
 Author: Simo Siiriä, FMI
 """
 
 import os
 import re
 import numpy as np
+import pandas as pd
 import PyPDF2
 
 def is_float(test_string):
@@ -140,9 +145,10 @@ def freo_to_c(data, freq, pressure, temp):
     c = (g + h*np.power(f,2) + i*np.power(f,3) + j*np.power(f,4))/(1.0+data['CTcor']*temp + data['CPcor']*pressure)
     return c
 
-def analyze_calibration_data(directory):
+def analyze_calibration_data(directory, out_dir = None):
+    result_text = ''
+    the_sensor = None
     max_diff_in_c = 0.0
-    how_many = 0
     the_first = True
     for filename in os.listdir(directory):
         filepath = os.path.join(directory, filename)
@@ -165,23 +171,49 @@ def analyze_calibration_data(directory):
         if file_ok:                
             data = ParseData(contents)
             if the_first:
-                print("SENSOR: {}".format(data['ser_num']))
+                the_first_file = filename
+                the_sensor = data['ser_num']
+                result_text +="SENSOR: {}\n".format(the_sensor)
+                result_text +=\
+                    "Recalculation with {}, shows error due rounding etc.\n"\
+                    .format(the_first_file)
                 orig_data = data
                 the_first = False
+            else:
+                if data['ser_num'] is not the_sensor:
+                    tmp_str = f"WARNING!! Sensor {data['ser_num']} != {the_sensor} !!!!\n"
+                    result_text += tmp_str
+                    print(tmp_str)
+                result_text += \
+                    "Difference between {} and {}\n"\
+                    .format(the_first_file, filename)
+                
             average_diff_in_c = 0.0
+            how_many = 0
+            result_text+="T(C)\tNew_c\t\tOriginal_c\tDifference\n"
             for t,f,c in zip(orig_data['bath_t'],orig_data['inst_freq'],orig_data['bath_c']):
                 new_c = freo_to_c(data,f,10.0,t)
-                print("{: 10.8f} {: 10.8f} {: 10.8f}".format(new_c, c, c - new_c))                    
+                result_text+="{: 4.1f}\t{: 10.8f}\t{: 10.8f}\t{: 10.8f}\n".format(\
+                                t,new_c, c, c - new_c)
                 average_diff_in_c += np.abs(c - new_c)
                 how_many += 1
                 if np.abs(c - new_c)>max_diff_in_c :
                     max_diff_in_c = np.abs(c - new_c)
             average_diff_in_c = average_diff_in_c/float(how_many)
-            print ("average error: {}".format(average_diff_in_c))
+            result_text += "average error: {}\n\n".format(average_diff_in_c)
 
-    print("Largest difference in conductivity: {}".format(max_diff_in_c))                    
-
+    result_text += "Largest difference in conductivity: {}".format(max_diff_in_c)
+    print(result_text)
+    if(out_dir):
+        out_filename = f'results_sensor_{data["ser_num"]}.txt'
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+        with open(out_dir + out_filename,'w') as f:
+            f.writelines(result_text)
+            print(f"Results written in {out_dir+out_filename}")
+    return result_text
 
 # Example usage
-analyze_calibration_data('c:/data/argodata/calib_sheet_test/')
-#analyze_calibration_data('c:/data/argodata/calib_sheet_test/pdfs/')
+out_dir = 'C:/data/argodata/calib_sheet_test/result/'
+#result = analyze_calibration_data('c:/data/argodata/calib_sheet_test/')
+result = analyze_calibration_data('c:/data/argodata/calib_sheet_test/pdfs/', out_dir)
