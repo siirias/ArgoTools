@@ -19,15 +19,15 @@ import plotly.io as pio     #Only needed for plotly output
 import gsw
 
 make_plotly = False
-close_figures = False
+close_figures = True
 file_format = "new_server"  # "old_server" "new_server"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\arvorc\\"
 #dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\ice_examples\\"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\Cape\\"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BGC_BP\\"
-#dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\AllFinnish\\"
-dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BarentsSea\\"
+dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\AllFinnish\\"
+#dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BarentsSea\\"
 output_dir = "C:\\Data\\ArgoData\\Figures\\"
 figure_size_timeline =(6,2.5) #(10,4)
 figure_size_profile = (3.5,5)#(7,10)
@@ -41,13 +41,13 @@ tl_max = None #23.0  # so usualy work for just one at a time.
 fig_dpi = 300
 c_map = 'viridis'
 interp_depths = np.array(np.arange(0,max_depth,0.1))
-plot_profile_timelines = True
+plot_profile_timelines = False
 plot_profile_clusters = True
 cluster_grid = True
 profile_cloud_alpha = 0.2
 enhance_temperature_min = -100.0 # -100.0 would ignore this
-variables = ['TEMP','PSAL_ADJUSTED', 'DENSITY']
-#variables = ['DENSITY']
+#variables = ['TEMP','PSAL_ADJUSTED', 'DENSITY', 'DOX2']
+variables = ['DENSITY']
 #variables = ['TEMP','PSAL','DOX2', 'BBP700', 'CPHL_ADJUSTED', 'CDOM', \
 #             'DOWN_IRRADIANCE380', 'DOWN_IRRADIANCE412', 'DOWN_IRRADIANCE490']
 #start=mp.dates.datetime.datetime(1000,5,5)
@@ -92,6 +92,9 @@ if plot_profile_timelines:
             else:
                 print("No suitable time variable!")
 #        print("Availabe variables: {}".format(list(d.keys())))
+        f_latitude = float(d['LATITUDE'][0])
+        f_longitude = float(d['LONGITUDE'][0])
+        f_area = ah.give_area(f_latitude, f_longitude)
         for var in variables:
             if var == 'DENSITY': #special case, let's calculate
                 d[var] = calculate_density(d)
@@ -156,7 +159,7 @@ if plot_profile_timelines:
                         plt.axhline(35,color = 'b',zorder = 11)
                         plt.axhline(18,color = 'r',zorder = 11)
                         # cbar = plt.colorbar(pad = 0.01, fraction = 0.05)
-                    plt.title("Float "+float_name)
+                    plt.title(f"Float {float_name} ({f_area})\n")
                     plt.ylabel(ah.axes_label_from_variable_name('PRES'))
                     plt.xlabel(ah.axes_label_from_variable_name(time_var))
                     plt.xticks(rotation=timeline_xtics_rotation)
@@ -186,6 +189,9 @@ if plot_profile_clusters:
                     time_var = 'TIME'
                 else:
                     print("No suitable time variable!")
+            f_latitude = float(d['LATITUDE'][0])
+            f_longitude = float(d['LONGITUDE'][0])
+            f_area = ah.give_area(f_latitude, f_longitude)
             
             if var == 'DENSITY': #special case, let's calculate
                 d[var] = calculate_density(d)
@@ -213,7 +219,7 @@ if plot_profile_clusters:
                     color = sm.get_cmap()(color)
                     plt.plot(d_sel[i,:], d_sel_pres[i,:],\
                              color = color, alpha = profile_cloud_alpha)
-                plt.title("Float " + float_name)
+                plt.title(f"Float {float_name} ({f_area})\n")
                 plt.ylabel(ah.axes_label_from_variable_name('PRES'))
 #                plt.xlabel(ah.axes_label_from_variable_name(var))
                 plt.xlabel("{}/{}".format(variable_print_name,

@@ -15,7 +15,7 @@ import argohelper as ah
 import datetime as dt
 
 #dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\GotlandDeep\\"
-dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\"
+dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\"
 #dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\BothnianSea\\"
 #dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\AllFinnish\\"
 #dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\Cape\\"

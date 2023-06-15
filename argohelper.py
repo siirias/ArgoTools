@@ -32,6 +32,24 @@ file_names_converted=['6902014_20161123144244280_converted.nc',
          '6902019_20161123144137259_converted.nc',
          '6902020_20161123123226453_converted.nc']
 
+def give_area(lat, lon):
+    the_area = ''
+    if lat>63.5:
+        the_area = 'Bothnian Bay'
+    elif lat>59.8:
+        the_area = 'Bothnian Sea'
+    elif lat>58.4:
+        the_area = 'N. Baltic Proper'
+    elif lat>56.2:
+        the_area = 'Baltic Proper'
+    elif lat>53.5:
+        if lon<14.4:
+            the_area = 'Bornholm Basin'
+        else:
+            the_area = 'Gdansk Basin'
+    return the_area
+
+
 def abs_suolaisuus(salt_p,lon,lat):
     a_salt = gsw.SA_from_SP_Baltic(salt_p,lon,lat)
     return np.asarray(a_salt)
