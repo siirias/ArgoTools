@@ -19,14 +19,15 @@ import plotly.io as pio     #Only needed for plotly output
 import gsw
 
 make_plotly = False
-close_figures = True
+close_figures = False
 file_format = "new_server"  # "old_server" "new_server"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\arvorc\\"
 #dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\"
-#dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\ice_examples\\"
+dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\ice_examples\\"
+#dir_to_plot="C:\\Data\\ArgoData\\BSSC2025\\set2\\coriolis\\2903899\\profiles\\"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\Cape\\"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BGC_BP\\"
-dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\AllFinnish\\"
+#dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\AllFinnish\\"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BarentsSea\\"
 output_dir = "C:\\Data\\ArgoData\\Figures\\"
 figure_size_timeline =(6,2.5) #(10,4)
@@ -36,18 +37,18 @@ timeline_xtics_rotation = 45.0  # 0.0
 timeline_xtics_fontsize = 8.0 #or none
 
 max_depth = 250.0
-tl_min = None #4.5   # fixes axes for each variable, 
-tl_max = None #23.0  # so usualy work for just one at a time.
+tl_min = None #4.5 #None #4.5   # fixes axes for each variable, 
+tl_max = None #7.0 #None #23.0  # so usualy work for just one at a time.
 fig_dpi = 300
 c_map = 'viridis'
 interp_depths = np.array(np.arange(0,max_depth,0.1))
-plot_profile_timelines = False
+plot_profile_timelines = True
 plot_profile_clusters = True
 cluster_grid = True
 profile_cloud_alpha = 0.2
 enhance_temperature_min = -100.0 # -100.0 would ignore this
 #variables = ['TEMP','PSAL_ADJUSTED', 'DENSITY', 'DOX2']
-variables = ['DENSITY']
+variables = ['TEMP']
 #variables = ['TEMP','PSAL','DOX2', 'BBP700', 'CPHL_ADJUSTED', 'CDOM', \
 #             'DOWN_IRRADIANCE380', 'DOWN_IRRADIANCE412', 'DOWN_IRRADIANCE490']
 #start=mp.dates.datetime.datetime(1000,5,5)
@@ -211,7 +212,7 @@ if plot_profile_clusters:
                 #create colorbar for time-indices
                 sm = plt.cm.ScalarMappable(cmap = c_map, \
                             norm=plt.Normalize(vmin = d[time_var].min(),\
-                                               vmax=d[time_var].max()))
+                                               vmax = d[time_var].max()))
                 sm._A=[] # this is needed as scalar mappable needs someting to map.
                 clims = sm.get_clim()
                 for i in range(d_sel.shape[0]):
@@ -219,6 +220,8 @@ if plot_profile_clusters:
                     color = sm.get_cmap()(color)
                     plt.plot(d_sel[i,:], d_sel_pres[i,:],\
                              color = color, alpha = profile_cloud_alpha)
+                if tl_min and tl_max:
+                    plt.gca().set_xlim(tl_min, tl_max)
                 plt.title(f"Float {float_name} ({f_area})\n")
                 plt.ylabel(ah.axes_label_from_variable_name('PRES'))
 #                plt.xlabel(ah.axes_label_from_variable_name(var))

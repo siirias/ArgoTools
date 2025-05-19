@@ -10,8 +10,8 @@ sys.path.insert(0,'D:\\svnfmi_merimallit\\qa\\nemo')
 import matplotlib as mp
 import matplotlib.pyplot as plt
 import numpy as np
-import ModelQATools as qa
-import ModelPltTools
+#import ModelQATools as qa
+#import ModelPltTools
 from scipy.io import netcdf
 from mpl_toolkits.basemap import Basemap
 from mpl_toolkits.basemap import Basemap, shiftgrid, cm
@@ -68,8 +68,8 @@ if plot_bathymetry:
 #    x=np.tile(lons,(lats.shape[0],1))
 #    y=np.tile(lats,(lons.shape[0],1)).T
     tmp_lon,tmp_lat =bmap(*np.meshgrid(lons,lats))
-    print "LON", tmp_lon.shape
-    print "LAT", tmp_lat.shape
+    print( "LON", tmp_lon.shape)
+    print( "LAT", tmp_lat.shape)
 #    bmap.pcolor(tmp_lon,tmp_lat,-1*topoin,cmap='bone_r',vmin=0,vmax=150)
     bmap.contourf(tmp_lon,tmp_lat,-1*topoin,levels=[0,20,40,60,80,100,120,140,160,180,200,220,240,1000],cmap='bone_r',vmin=0,vmax=200)
     cb=plt.colorbar(fraction=0.027, pad=0.04)

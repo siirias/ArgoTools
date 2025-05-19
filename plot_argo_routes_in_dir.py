@@ -21,14 +21,16 @@ import cmocean as cmo
 from itertools import cycle
 import random # when generating colors for some trajectories
 import folium # only needed for interactive leaflet maps
-from PIL import Image # only needed for interactive leaflet maps
+# from PIL import Image # only needed for interactive leaflet maps
 
 dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\" #default value
 output_dir = "C:\\Data\\ArgoData\\Figures\\"
 data_dir = "C:\\Data\\ArgoData\\"  # mainly for topography data
-figure_setup = "AllFinnish" #"EAR_UseCase" #"EARISE_deployment"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
+figure_setup = "FullBaltic"# "NationalReport2023" # "EAR_UseCase" #"EARISE_deployment"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
+dir_to_plot="C:\\Data\\ArgoData\\BSSC2025\\set1\\"
 #figure_setup ="Bothnian Sea"  #"EARISE_BP" #May change dir_to_plot
-extras_to_plot = [] #[[19.5,58.6,20.6,59.2]]
+extras_to_plot = [] #[[58.6, 19.5,59.2, 20.6]]
+
 make_leaflet = False
 random_seed = 0  #can be changed in setups. Set so that plots are identical in consqeuent runs.
 figure_name="RBR"  #default value
@@ -255,6 +257,13 @@ if( figure_setup == "GoB"):
     lon_min=17;lat_min=60;lon_max=26;lat_max=66;
     figure_size=(10,10)
     
+if( figure_setup == "IceExample2021"):
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\IceExample2021\\"
+    figure_name = "Gulf of Bothnia"
+    lon_min=21;lat_min=64;lon_max=26;lat_max=66;
+    figure_size=(10,10)  
+    shore_resolution = "10m"  # "10m" "50m"
+
 if(figure_setup == "FullBaltic"):
     lon_min=16;lat_min=53;lon_max=30.5;lat_max=66;
     figure_size=(8,10)
@@ -289,7 +298,7 @@ if(figure_setup == "Barents Sea"):
     line_alpha = 0.5
     plot_points = True
     plot_legends = True
-    plot_bathymetry = False
+    plot_bathymetry = True
     bathy_max = 400 # meters
     lon_min=10;lat_min=75;lon_max=50.0;lat_max=80.0;
     center = [(lon_min+lon_max)*0.5, (lat_min+lat_max)*0.5]
@@ -318,6 +327,7 @@ if(figure_setup == "Barents Sea 2022"):
     marker_size = 5
     all_colors= ["#ff0000","#000000","#0000ff"]
     bathy_colormap = 'gist_gray_r'
+
 
 
 if(figure_setup == "Barents Sea all"):
@@ -389,8 +399,8 @@ if(figure_setup == "DeploymentPlan"):
     center = [(lon_min+lon_max)*0.5, (lat_min+lat_max)*0.5]
     requested_proj = ccrs.LambertAzimuthalEqualArea(center[0],center[1])
     draw_EEZ = True
-#    extras_to_plot = [[19.5,58.6,20.6,59.2],[20.3106,58.8806]]
-    extras_to_plot = [[20.3106,58.8806]]
+#    extras_to_plot = [[58.6,19.5, 59.2, 20.6],[58.8806, 20.3106]]
+    extras_to_plot = [[58.8806, 20.3106]]
 
     
 if(figure_setup == "AllFinnishPolishGerman"):
@@ -428,7 +438,19 @@ if(figure_setup == "AllFinnish"):
     requested_proj = ccrs.TransverseMercator(\
            central_latitude = center[1],\
            central_longitude = center[0])    
-    
+
+if(figure_setup == "MB2025"):
+    lon_min=10;lat_min=53;lon_max=30.5;lat_max=66;
+    start=mp.dates.datetime.datetime(2010,1,1)
+    end=mp.dates.datetime.datetime(2230,5,5)
+    plot_legends = True
+    figure_name = 'MB2025'
+    figure_size=(12,9)
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\MBMeet2025\\"
+    bathy_colormap = 'gist_gray_r'
+    extras_to_plot = [[61.53, 20.24]] 
+
+        
 if(figure_setup == "NationalReport2020"):
     lon_min=10;lat_min=53;lon_max=30.5;lat_max=66;
     start=mp.dates.datetime.datetime(2010,1,1)
@@ -461,6 +483,21 @@ if(figure_setup == "NationalReport2022"):
     dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\NationalReport2022\\"
     bathy_colormap = 'gist_gray_r'
     
+if(figure_setup == "NationalReport2023"):
+    lon_min=10;lat_min=53;lon_max=30.5;lat_max=66;
+    start=mp.dates.datetime.datetime(2010,1,1)
+    end=mp.dates.datetime.datetime(2230,5,5)
+    figure_name = 'NationalReport2023'
+    figure_size=(12,9)
+    plot_legends = True
+    draw_EEZ = True
+    plot_bathymetry = True
+    plot_points = False
+    dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\NR2023\\"
+    bathy_colormap = 'gist_gray_r'
+    center = [(lon_min+lon_max)*0.5, (lat_min+lat_max)*0.5]
+    requested_proj = ccrs.LambertAzimuthalEqualArea(center[0],center[1])
+
 if(figure_setup == "GotlandD"):
     lon_min=18;lat_min=56;lon_max=21;lat_max=59;
     start=mp.dates.datetime.datetime(2013,3,1)
@@ -497,6 +534,8 @@ if(figure_setup == "Bay of Bothnia"):
     figure_name="FMIBothnianBay"
     dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BayOfBothnia\\"
     lon_min=20;lat_min=64;lon_max=26;lat_max=66;
+    plot_legends = True
+    plot_bathymetry = True
     
 if(figure_setup == "EARISE_BP"):
     figure_name="EuroArgoRISE"
@@ -688,15 +727,15 @@ if plot_legends:
 if len(extras_to_plot)>0: #plot some points or rectangles
     for extra in extras_to_plot:
         if(len(extra) == 4): #rectangle
-            p = mpatches.Rectangle(extra[:2],
-                               extra[2]-extra[0],
+            p = mpatches.Rectangle(extra[:2][-1::1],
                                extra[3]-extra[1],
+                               extra[2]-extra[0],
                                transform = ccrs.PlateCarree(),
                                alpha=0.3,
                                color='red' )
             ax.add_patch(p)
         if(len(extra) == 2): #a coordinate
-            plt.plot(extra[0],extra[1],
+            plt.plot(extra[1],extra[0],
                      'x',
                      color='black',
                      markersize=10.0,
