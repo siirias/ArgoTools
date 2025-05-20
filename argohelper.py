@@ -322,20 +322,33 @@ def give_statistics(files_to_use = None):
         print("depth avg:{}, min:{},max:{}".format(avg_pres,min_pres,max_pres))
         print("-----\n")
         
+
 def get_primary_indices(dataset):
-    #dataset is netcdffile loaded with xarray .opendataset
-    sampling_schemes =  dataset['VERTICAL_SAMPLING_SCHEME']
+    # dataset is a NetCDF file loaded with xarray.open_dataset
+    if 'VERTICAL_SAMPLING_SCHEME' not in dataset:
+        print("Warning: 'VERTICAL_SAMPLING_SCHEME' not found in dataset. Assuming all profiles are primary.")
+        if 'N_PROF' in dataset:
+            return np.ones(dataset.dims['N_PROF'], dtype=bool)
+        else:
+            return np.ones(dataset.dims['TIME'], dtype=bool)
+
+    sampling_schemes = dataset['VERTICAL_SAMPLING_SCHEME']
+    # Convert to strings (may be byte strings)
     #See http://www.odip.org/documents/odip/downloads/20/argo-dm-user-manual.pdf
     # page 18, this determines the type of profile, only one primary
     #per profile
-    sampling_schemes = map(str,sampling_schemes) #convert to strings
-    primaries = list(map(lambda x:'Primary' in x, sampling_schemes))
-    #true where primary.
-    primaries=np.array(primaries)
-    #if none has the 'Primary', assume all are primaries
-    if sum(primaries) == 0:
-        primaries[:]=True
+    sampling_schemes = map(str, sampling_schemes.values)
+
+    # True where 'Primary' is in the scheme description
+    primaries = np.array(['Primary' in s for s in sampling_schemes])
+
+    # If none marked as primary, assume all are primary
+    if not primaries.any():
+        print("Warning: No 'Primary' sampling schemes found. Assuming all profiles are primary.")
+        primaries[:] = True
+
     return primaries
+
 
 def interpolate_data_to_depths(variable, depths, new_depth_axis):
     #assumes data is format (profile_n, level_n)
