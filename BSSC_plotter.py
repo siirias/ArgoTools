@@ -234,7 +234,7 @@ def main():
                                              the_plot.lon, 
                                              the_plot.radius,
                                              the_plot.variable)
-            if not df.empty:
+            if df is not None and not df.empty:
                 profile_savefile = os.path.join(save_directory, f"{the_plot.filename_base}_profile.png")
                 map_savefile = os.path.join(save_directory, f"{the_plot.filename_base}_map.png")
                 if PLOT_PROFILES:
