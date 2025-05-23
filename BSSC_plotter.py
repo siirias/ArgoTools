@@ -10,9 +10,12 @@ import cmocean
 from cartopy.geodesic import Geodesic
 from datetime import datetime
 from geopy.distance import geodesic
-from cmocean import cm
+from datetime import datetime
+from cartopy.feature import NaturalEarthFeature
 
-CLOSE_FIGURES = False  # Set to False to keep figures open after saving, True to close.
+DATE_RANGE_MIN = datetime(2000, 1, 1)   # or None to disable
+DATE_RANGE_MAX = datetime(2025, 12, 31) # or None to disable
+CLOSE_FIGURES = True  # Set to False to keep figures open after saving, True to close.
 PLOT_MAPS = True
 PLOT_PROFILES = True
 def load_profiles_within_radius(directory, target_lat, target_lon, radius_nm, variable):
@@ -34,6 +37,7 @@ def load_profiles_within_radius(directory, target_lat, target_lon, radius_nm, va
             time = ds['TIME'].values
             pres = ds['PRES'].values
             var_data = ds[variable].values
+            unit = ds[variable].attrs.get('units', '')
 
             for i in range(len(time)):
                 point = (lat[i], lon[i])
@@ -55,8 +59,8 @@ def load_profiles_within_radius(directory, target_lat, target_lon, radius_nm, va
 
     df = pd.DataFrame(records)
     if df.empty or "time" not in df.columns:
-        return None    
-    return df.sort_values("time")
+        return None, None    
+    return df.sort_values("time"), unit
 
 def pick_colormap(variable):
         # Choose a colormap based on the variable name
@@ -65,12 +69,12 @@ def pick_colormap(variable):
     elif "PSAL" in variable.upper():
         cmap = cmocean.cm.haline
     elif "DOX2" in variable.upper():
-        cmap = cmocean.cm.oxy
+        cmap = cmocean.cm.matter
     else:
         cmap = 'viridis'  # fallback
     return cmap
 
-def plot_profiles(df, variable, save_path=None, depth_bins = 400):
+def plot_profiles(df, variable, save_path=None, unit='', depth_bins = 400):
     """
     Plot profiles from dataframe (time, depth, value) using pcolormesh-style plotting.
     Masks values beyond the deepest actual measurement in each profile.
@@ -86,7 +90,12 @@ def plot_profiles(df, variable, save_path=None, depth_bins = 400):
         profile = df[df['time'] == time].sort_values("depth")
         if len(profile) < 5:
             continue
-
+        # Check global time limits
+        profile_time = pd.to_datetime(str(time))
+        if (DATE_RANGE_MIN and profile_time < DATE_RANGE_MIN) or \
+           (DATE_RANGE_MAX and profile_time > DATE_RANGE_MAX):
+            print(profile_time)
+            continue
         profile_depths = profile['depth'].values
         profile_values = profile['value'].values
 
@@ -103,7 +112,7 @@ def plot_profiles(df, variable, save_path=None, depth_bins = 400):
     plt.figure(figsize=(12, 6))
     cmap = pick_colormap(variable)
     im = plt.pcolormesh(time_labels, depths, value_grid, shading='auto', cmap=cmap)
-    plt.colorbar(im, label=variable)
+    plt.colorbar(im, label=f"{variable} ({unit})")
     plt.gca().invert_yaxis()
     plt.xlabel("Time")
     plt.ylabel("Depth [dbar]")
@@ -158,8 +167,12 @@ def plot_profile_locations_map(directory, target_lat, target_lon, radius_nm, sav
     extent = [min(lons)-margin, max(lons)+margin, min(lats)-margin, max(lats)+margin]
     ax.set_extent(extent, crs=ccrs.PlateCarree())
 
-    ax.coastlines(resolution='10m')
-    ax.add_feature(cfeature.LAND, facecolor='lightgray')
+#    ax.coastlines(resolution='10m')
+    #ax.add_feature(cfeature.LAND, facecolor='lightgray')
+    land = NaturalEarthFeature('physical', 'land', scale='50m',\
+                          edgecolor='face', facecolor='lightgray')    
+    ax.add_feature(land)
+    
     ax.gridlines(draw_labels=True)
 
     for (lat, lon), ok in zip(locations, accepted):
@@ -194,7 +207,7 @@ class PlotType:
 
 def main():
     save_directory = r"C:\Data\ArgoData\Figures\BSSC2025\\"
-    radiis = [5.0, 10.0, 15.0, 20.0]  #nautical miles
+    radiis = [5, 10, 15, 20]  #nautical miles
     for the_radius in radiis:
         plot_sets = []
         parameter_list = ['TEMP_ADJUSTED', 'PSAL_ADJUSTED', 'DOX2_ADJUSTED']
@@ -215,12 +228,12 @@ def main():
                                  61.3, 20.05,
                                  the_radius,
                                  param,
-                                 'BothnianBay1'))
+                                 'BothnianSea1'))
             plot_sets.append(PlotType(r"C:\Data\ArgoData\BSSC2025\BothnianSea\\",
                                  62.15, 19.9,
                                  the_radius,
                                  param,
-                                 'BothnianBay2'))
+                                 'BothnianSea2'))
             plot_sets.append(PlotType(r"C:\Data\ArgoData\BSSC2025\NBP\\",
                                      58.9, 20.3,
                                      the_radius,
@@ -229,7 +242,7 @@ def main():
         
         os.makedirs(save_directory, exist_ok=True)
         for the_plot in plot_sets:
-            df = load_profiles_within_radius(the_plot.directory, 
+            df,unit = load_profiles_within_radius(the_plot.directory, 
                                              the_plot.lat, 
                                              the_plot.lon, 
                                              the_plot.radius,
@@ -238,7 +251,7 @@ def main():
                 profile_savefile = os.path.join(save_directory, f"{the_plot.filename_base}_profile.png")
                 map_savefile = os.path.join(save_directory, f"{the_plot.filename_base}_map.png")
                 if PLOT_PROFILES:
-                    plot_profiles(df, the_plot.variable, profile_savefile)
+                    plot_profiles(df, the_plot.variable, profile_savefile, unit)
                 if PLOT_MAPS:
                     plot_profile_locations_map(the_plot.directory,
                                            the_plot.lat, 
