@@ -17,7 +17,7 @@ from matplotlib.colors import ListedColormap, BoundaryNorm, LinearSegmentedColor
 DATE_RANGE_MIN = datetime(2000, 1, 1)
 DATE_RANGE_MAX = datetime(2025, 12, 31)
 CLOSE_FIGURES = True
-PLOT_MAPS = False
+PLOT_MAPS = True
 PLOT_PROFILES = True
 
 def load_profiles_within_radius(directory, target_lat, target_lon, radius_nm, variable):
@@ -218,8 +218,8 @@ def plot_profile_locations_map(directory, target_lat, target_lon, radius_nm, sav
     ax.gridlines(draw_labels=True)
 
     for (lat, lon), ok in zip(locations, accepted):
-        color = 'lightblue' if ok else 'darkred'
-        ax.plot(lon, lat, marker='o', color=color, markersize=2, transform=ccrs.PlateCarree())
+        color = 'blue' if ok else 'darkred'
+        ax.plot(lon, lat, marker='o', color=color, markersize=1, transform=ccrs.PlateCarree())
 
     geod = Geodesic()
     circle = geod.circle(lon=target_lon, lat=target_lat, radius=radius_km * 1000, n_samples=180)
@@ -281,6 +281,7 @@ def main():
                 depth_grid = np.linspace(df['depth'].min(), df['depth'].max(), 400)
                 interp_profiles, interp_times = interpolate_profiles_to_grid(df, depth_grid)
 
+                map_savefile = os.path.join(the_save_directory, f"{the_plot.filename_base}_map.png")
                 profile_savefile = os.path.join(the_save_directory, f"{the_plot.filename_base}_profile.png")
                 cloud_savefile_tr = os.path.join(the_save_directory, f"{the_plot.filename_base}_cloud_tr.png")
                 cloud_savefile_m = os.path.join(the_save_directory, f"{the_plot.filename_base}_cloud_m.png")
@@ -291,6 +292,8 @@ def main():
                                        interp_profiles, interp_times, depth_grid)
                     plot_profile_cloud(df, the_plot.variable, cloud_savefile_m, unit, "months",
                                        interp_profiles, interp_times, depth_grid)
+                if PLOT_MAPS:
+                    plot_profile_locations_map(the_plot.directory, the_plot.lat, the_plot.lon, the_plot.radius, map_savefile)
 
 if __name__ == "__main__":
     main()
