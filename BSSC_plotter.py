@@ -250,7 +250,7 @@ class PlotType:
 
 def main():
     save_directory = r"C:\Data\ArgoData\Figures\BSSC2025\\"
-    radiis = [5, 10, 15, 20]  # nautical miles
+    radiis = [5, 10, 15, 20, 2000]  # nautical miles
     parameter_list = ['TEMP_ADJUSTED', 'PSAL_ADJUSTED', 'DOX2_ADJUSTED']
 
     for the_radius in radiis:
