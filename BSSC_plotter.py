@@ -14,18 +14,23 @@ from geopy.distance import geodesic
 from cartopy.feature import NaturalEarthFeature
 from matplotlib.colors import ListedColormap, BoundaryNorm, LinearSegmentedColormap
 from datetime import timedelta
+import time
+from colorama import Fore, Style, init
+init(autoreset=True)  # ensures colors don’t bleed into next prints
+
 
 DATE_RANGE_MIN = datetime(2000, 1, 1)
 DATE_RANGE_MAX = datetime(2025, 12, 31)
 CLOSE_FIGURES = True
-PLOT_MAPS = False
+PLOT_MAPS = True
 PLOT_PROFILES = True
 
 def load_profiles_within_radius(directory, target_lat, target_lon, radius_nm, variable):
     radius_km = radius_nm * 1.852
     files = glob.glob(os.path.join(directory, "*.nc"))
     records = []
-
+    included_files = []
+    skipped_files = []
     for file in files:
         try:
             ds = xr.open_dataset(file)
@@ -51,9 +56,12 @@ def load_profiles_within_radius(directory, target_lat, target_lon, radius_nm, va
                                 'profile_id': f"{os.path.basename(file)}_{i}"
                             })
             ds.close()
+            included_files.append(os.path.basename(file))
         except Exception as e:
-            print(f"Skipping {file}: {e}")
-
+            skipped_files.append(os.path.basename(file))
+    print(f"From {directory}")
+    print(f"{Fore.GREEN}included:{', '.join(included_files)}\n\n")
+    print(f"{Fore.RED}excluded:{', '.join(skipped_files)}\n\n")
     df = pd.DataFrame(records)
     if df.empty or "time" not in df.columns:
         return None, None    
@@ -125,6 +133,7 @@ def plot_profiles(interp_profiles, interp_times, depth_grid, variable,
     plt.tight_layout()
     if save_path:
         plt.savefig(save_path, dpi=300)
+        print(f"saved: {save_path}")
     if CLOSE_FIGURES:
         plt.close()
 
@@ -192,6 +201,7 @@ def plot_profile_cloud(df, variable, save_path=None, unit='', colortype="time_ra
     plt.tight_layout()
     if save_path:
         plt.savefig(save_path, dpi=300)
+        print(f"saved: {save_path}")
     if CLOSE_FIGURES:
         plt.close()
 
@@ -276,6 +286,7 @@ class PlotType:
         self.set_name = fnamebase
 
 def main():
+    start_time = time.time()
     save_directory = r"C:\Data\ArgoData\Figures\BSSC2025\\"
     radiis = [5, 10, 15, 20, 2000]  # nautical miles
     parameter_list = ['TEMP_ADJUSTED', 'PSAL_ADJUSTED', 'DOX2_ADJUSTED']
@@ -320,7 +331,10 @@ def main():
                                         interp_profiles, interp_times, depth_grid)
                 if PLOT_MAPS:
                     plot_profile_locations_map(the_plot.directory, the_plot.lat, the_plot.lon, the_plot.radius, map_savefile)
-
+    end_time = time.time()
+    elapsed = end_time - start_time
+    print(f"Total plotting time: {(elapsed/60.0):.2f} minutes")
+    
 if __name__ == "__main__":
     main()
 
