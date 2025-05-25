@@ -13,11 +13,12 @@ from datetime import datetime
 from geopy.distance import geodesic
 from cartopy.feature import NaturalEarthFeature
 from matplotlib.colors import ListedColormap, BoundaryNorm, LinearSegmentedColormap
+from datetime import timedelta
 
 DATE_RANGE_MIN = datetime(2000, 1, 1)
 DATE_RANGE_MAX = datetime(2025, 12, 31)
 CLOSE_FIGURES = True
-PLOT_MAPS = True
+PLOT_MAPS = False
 PLOT_PROFILES = True
 
 def load_profiles_within_radius(directory, target_lat, target_lon, radius_nm, variable):
@@ -87,11 +88,35 @@ def pick_colormap(variable):
         return cmocean.cm.matter
     return 'viridis'
 
-def plot_profiles(interp_profiles, interp_times, depth_grid, variable, save_path=None, unit=''):
+def plot_profiles(interp_profiles, interp_times, depth_grid, variable, 
+                  save_path=None, unit='', max_gap_days = None):
+    # Convert interp_times to list of pandas Timestamps
+    interp_times = pd.to_datetime(interp_times)
+    value_grid = np.array(interp_profiles)
+    if max_gap_days is not None:
+        new_profiles = []
+        new_times = []
+
+        for i in range(len(interp_times)):
+            new_profiles.append(value_grid[i])
+            new_times.append(interp_times[i])
+
+            if i < len(interp_times) - 1:
+                time_diff = (interp_times[i + 1] - interp_times[i]).days
+                if time_diff > max_gap_days:
+                    new_profiles.append([np.nan] * value_grid.shape[1])
+                    new_times.append(interp_times[i] + timedelta(days=np.min([time_diff/2.0,max_gap_days/2.1])))
+                    new_profiles.append([np.nan] * value_grid.shape[1])
+                    new_times.append(interp_times[i+1] - timedelta(days=np.min([time_diff/2.0,max_gap_days/2.1])))
+
+        interp_profiles = np.array(new_profiles)
+        interp_times = np.array(new_times)
+
+
     value_grid = np.array(interp_profiles).T
     plt.figure(figsize=(12, 6))
     cmap = pick_colormap(variable)
-    im = plt.pcolormesh(interp_times, depth_grid, value_grid, shading='auto', cmap=cmap)
+    im = plt.pcolormesh(interp_times, depth_grid, value_grid, shading='nearest', cmap=cmap)
     plt.colorbar(im, label=f"{variable} ({unit})")
     plt.gca().invert_yaxis()
     plt.xlabel("Time")
@@ -120,9 +145,11 @@ def plot_profile_cloud(df, variable, save_path=None, unit='', colortype="time_ra
              '#FF8000', '#FF4000', '#FF0000', '#D00070', '#8800FF', '#4400FF'], N=12)
         month_colors = seasonal_colors(np.linspace(0, 1, 12))
         months = np.array([pd.Timestamp(t).month for t in interp_times])
-
+        a_value = 0.1 
+        if(len(interp_profiles)>200): #too many profiles, the cloud gets too dense.
+            a_value = 0.03
         for i, profile in enumerate(interp_profiles):
-            ax.plot(profile, depth_grid, color=month_colors[months[i]-1], alpha=0.1, linewidth=1)
+            ax.plot(profile, depth_grid, color=month_colors[months[i]-1], alpha=a_value, linewidth=1)
 
         for month in range(1, 13):
             mask = months == month
@@ -147,7 +174,7 @@ def plot_profile_cloud(df, variable, save_path=None, unit='', colortype="time_ra
         cmap = plt.colormaps["plasma"]
 
         for i, profile in enumerate(interp_profiles):
-            ax.plot(profile, depth_grid, color=cmap(norm(time_nums[i])), alpha=0.4, linewidth=1)
+            ax.plot(profile, depth_grid, color=cmap(norm(time_nums[i])), alpha=0.1, linewidth=1)
 
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array([])
@@ -254,22 +281,17 @@ def main():
     parameter_list = ['TEMP_ADJUSTED', 'PSAL_ADJUSTED', 'DOX2_ADJUSTED']
 
     for the_radius in radiis:
-        plot_sets = [
-            PlotType(r"C:\Data\ArgoData\BSSC2025\GotlandDeep\\", 57.3, 20.0, the_radius, param, 'GotlandDeep')
-            for param in parameter_list
-        ] + [
-            PlotType(r"C:\Data\ArgoData\BSSC2025\BothnianBay\\", 64.9, 23.3, the_radius, param, 'BothnianBay')
-            for param in parameter_list
-        ] + [
-            PlotType(r"C:\Data\ArgoData\BSSC2025\BothnianSea\\", 61.3, 20.05, the_radius, param, 'BothnianSea1')
-            for param in parameter_list
-        ] + [
-            PlotType(r"C:\Data\ArgoData\BSSC2025\BothnianSea\\", 62.15, 19.9, the_radius, param, 'BothnianSea2')
-            for param in parameter_list
-        ] + [
-            PlotType(r"C:\Data\ArgoData\BSSC2025\NBP\\", 58.9, 20.3, the_radius, param, 'NBP')
-            for param in parameter_list
-        ]
+        plot_sets = \
+            [PlotType(r"C:\Data\ArgoData\BSSC2025\GotlandDeep\\", 57.3, 20.0, the_radius, param, 'GotlandDeep')
+             for param in parameter_list]\
+        + [PlotType(r"C:\Data\ArgoData\BSSC2025\BothnianBay\\", 64.9, 23.3, the_radius, param, 'BothnianBay')
+             for param in parameter_list]\
+        + [PlotType(r"C:\Data\ArgoData\BSSC2025\BothnianSea\\", 61.3, 20.05, the_radius, param, 'BothnianSea1')
+            for param in parameter_list]\
+        + [PlotType(r"C:\Data\ArgoData\BSSC2025\BothnianSea\\", 62.15, 19.9, the_radius, param, 'BothnianSea2')
+             for param in parameter_list]\
+        + [PlotType(r"C:\Data\ArgoData\BSSC2025\NBP\\", 58.9, 20.3, the_radius, param, 'NBP')
+             for param in parameter_list]
 
         for the_plot in plot_sets:
             the_save_directory = os.path.join(save_directory, the_plot.set_name, the_plot.variable)
@@ -283,15 +305,19 @@ def main():
 
                 map_savefile = os.path.join(the_save_directory, f"{the_plot.filename_base}_map.png")
                 profile_savefile = os.path.join(the_save_directory, f"{the_plot.filename_base}_profile.png")
+                profile_gap_savefile = os.path.join(the_save_directory, f"{the_plot.filename_base}_profile_gap.png")
                 cloud_savefile_tr = os.path.join(the_save_directory, f"{the_plot.filename_base}_cloud_tr.png")
                 cloud_savefile_m = os.path.join(the_save_directory, f"{the_plot.filename_base}_cloud_m.png")
 
                 if PLOT_PROFILES:
-                    plot_profiles(interp_profiles, interp_times, depth_grid, the_plot.variable, profile_savefile, unit)
+                    plot_profiles(interp_profiles, interp_times, depth_grid, 
+                                  the_plot.variable, profile_savefile, unit)
+                    plot_profiles(interp_profiles, interp_times, depth_grid, 
+                                  the_plot.variable, profile_gap_savefile, unit, 20)
                     plot_profile_cloud(df, the_plot.variable, cloud_savefile_tr, unit, "time_range",
-                                       interp_profiles, interp_times, depth_grid)
+                                        interp_profiles, interp_times, depth_grid)
                     plot_profile_cloud(df, the_plot.variable, cloud_savefile_m, unit, "months",
-                                       interp_profiles, interp_times, depth_grid)
+                                        interp_profiles, interp_times, depth_grid)
                 if PLOT_MAPS:
                     plot_profile_locations_map(the_plot.directory, the_plot.lat, the_plot.lon, the_plot.radius, map_savefile)
 
