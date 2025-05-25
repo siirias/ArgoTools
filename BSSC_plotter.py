@@ -15,6 +15,7 @@ from cartopy.feature import NaturalEarthFeature
 from matplotlib.colors import ListedColormap, BoundaryNorm, LinearSegmentedColormap
 from datetime import timedelta
 import time
+from concurrent.futures import ProcessPoolExecutor
 from colorama import Fore, Style, init
 init(autoreset=True)  # ensures colors don’t bleed into next prints
 
@@ -22,8 +23,9 @@ init(autoreset=True)  # ensures colors don’t bleed into next prints
 DATE_RANGE_MIN = datetime(2000, 1, 1)
 DATE_RANGE_MAX = datetime(2025, 12, 31)
 CLOSE_FIGURES = True
-PLOT_MAPS = True
+PLOT_MAPS = False
 PLOT_PROFILES = True
+USE_PARALLEL_PLOTTING = True
 
 def load_profiles_within_radius(directory, target_lat, target_lon, radius_nm, variable):
     radius_km = radius_nm * 1.852
@@ -59,7 +61,7 @@ def load_profiles_within_radius(directory, target_lat, target_lon, radius_nm, va
             included_files.append(os.path.basename(file))
         except Exception as e:
             skipped_files.append(os.path.basename(file))
-    print(f"From {directory}")
+    print(f"{Fore.YELLOW}From {directory}")
     print(f"{Fore.GREEN}included:{', '.join(included_files)}\n\n")
     print(f"{Fore.RED}excluded:{', '.join(skipped_files)}\n\n")
     df = pd.DataFrame(records)
@@ -285,14 +287,43 @@ class PlotType:
         self.filename_base = f"{fnamebase}_{variable}_r{radius}"
         self.set_name = fnamebase
 
+def handle_plot_set(the_plot, save_directory):
+    the_save_directory = os.path.join(save_directory, the_plot.set_name, the_plot.variable)
+    os.makedirs(the_save_directory, exist_ok=True)
+
+    df, unit = load_profiles_within_radius(the_plot.directory, the_plot.lat, the_plot.lon,
+                                           the_plot.radius, the_plot.variable)
+    if df is not None and not df.empty:
+        depth_grid = np.linspace(df['depth'].min(), df['depth'].max(), 400)
+        interp_profiles, interp_times = interpolate_profiles_to_grid(df, depth_grid)
+
+        map_savefile = os.path.join(the_save_directory, f"{the_plot.filename_base}_map.png")
+        profile_savefile = os.path.join(the_save_directory, f"{the_plot.filename_base}_profile.png")
+        profile_gap_savefile = os.path.join(the_save_directory, f"{the_plot.filename_base}_profile_gap.png")
+        cloud_savefile_tr = os.path.join(the_save_directory, f"{the_plot.filename_base}_cloud_tr.png")
+        cloud_savefile_m = os.path.join(the_save_directory, f"{the_plot.filename_base}_cloud_m.png")
+
+        if PLOT_PROFILES:
+            plot_profiles(interp_profiles, interp_times, depth_grid, 
+                          the_plot.variable, profile_savefile, unit)
+            plot_profiles(interp_profiles, interp_times, depth_grid, 
+                          the_plot.variable, profile_gap_savefile, unit, 20)
+            plot_profile_cloud(df, the_plot.variable, cloud_savefile_tr, unit, "time_range",
+                                interp_profiles, interp_times, depth_grid)
+            plot_profile_cloud(df, the_plot.variable, cloud_savefile_m, unit, "months",
+                                interp_profiles, interp_times, depth_grid)
+        if PLOT_MAPS:
+            plot_profile_locations_map(the_plot.directory, the_plot.lat, the_plot.lon, the_plot.radius, map_savefile)
+    
+
 def main():
     start_time = time.time()
     save_directory = r"C:\Data\ArgoData\Figures\BSSC2025\\"
     radiis = [5, 10, 15, 20, 2000]  # nautical miles
     parameter_list = ['TEMP_ADJUSTED', 'PSAL_ADJUSTED', 'DOX2_ADJUSTED']
-
+    plot_sets=[]
     for the_radius in radiis:
-        plot_sets = \
+        plot_sets += \
             [PlotType(r"C:\Data\ArgoData\BSSC2025\GotlandDeep\\", 57.3, 20.0, the_radius, param, 'GotlandDeep')
              for param in parameter_list]\
         + [PlotType(r"C:\Data\ArgoData\BSSC2025\BothnianBay\\", 64.9, 23.3, the_radius, param, 'BothnianBay')
@@ -304,33 +335,15 @@ def main():
         + [PlotType(r"C:\Data\ArgoData\BSSC2025\NBP\\", 58.9, 20.3, the_radius, param, 'NBP')
              for param in parameter_list]
 
+    if USE_PARALLEL_PLOTTING:
+        with ProcessPoolExecutor() as executor:
+            futures = [executor.submit(handle_plot_set, the_plot, save_directory) for the_plot in plot_sets]
+            for f in futures:
+                f.result()  # wait and raise any exceptions
+    else:
         for the_plot in plot_sets:
-            the_save_directory = os.path.join(save_directory, the_plot.set_name, the_plot.variable)
-            os.makedirs(the_save_directory, exist_ok=True)
-
-            df, unit = load_profiles_within_radius(the_plot.directory, the_plot.lat, the_plot.lon,
-                                                   the_plot.radius, the_plot.variable)
-            if df is not None and not df.empty:
-                depth_grid = np.linspace(df['depth'].min(), df['depth'].max(), 400)
-                interp_profiles, interp_times = interpolate_profiles_to_grid(df, depth_grid)
-
-                map_savefile = os.path.join(the_save_directory, f"{the_plot.filename_base}_map.png")
-                profile_savefile = os.path.join(the_save_directory, f"{the_plot.filename_base}_profile.png")
-                profile_gap_savefile = os.path.join(the_save_directory, f"{the_plot.filename_base}_profile_gap.png")
-                cloud_savefile_tr = os.path.join(the_save_directory, f"{the_plot.filename_base}_cloud_tr.png")
-                cloud_savefile_m = os.path.join(the_save_directory, f"{the_plot.filename_base}_cloud_m.png")
-
-                if PLOT_PROFILES:
-                    plot_profiles(interp_profiles, interp_times, depth_grid, 
-                                  the_plot.variable, profile_savefile, unit)
-                    plot_profiles(interp_profiles, interp_times, depth_grid, 
-                                  the_plot.variable, profile_gap_savefile, unit, 20)
-                    plot_profile_cloud(df, the_plot.variable, cloud_savefile_tr, unit, "time_range",
-                                        interp_profiles, interp_times, depth_grid)
-                    plot_profile_cloud(df, the_plot.variable, cloud_savefile_m, unit, "months",
-                                        interp_profiles, interp_times, depth_grid)
-                if PLOT_MAPS:
-                    plot_profile_locations_map(the_plot.directory, the_plot.lat, the_plot.lon, the_plot.radius, map_savefile)
+            handle_plot_set(the_plot, save_directory)
+            
     end_time = time.time()
     elapsed = end_time - start_time
     print(f"Total plotting time: {(elapsed/60.0):.2f} minutes")
