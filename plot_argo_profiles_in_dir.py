@@ -23,12 +23,13 @@ close_figures = False
 file_format = "new_server"  # "old_server" "new_server"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\arvorc\\"
 #dir_to_plot="D:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\"
-dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\ice_examples\\"
-#dir_to_plot="C:\\Data\\ArgoData\\BSSC2025\\set2\\coriolis\\2903899\\profiles\\"
+#dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\ice_examples\\"
+#dir_to_plot="C:\\Data\\ArgoData\\BSSC2025\\set4\\"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\Cape\\"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BGC_BP\\"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\AllFinnish\\"
 #dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\BarentsSea\\"
+dir_to_plot = r'C:\Data\ArgoData\ArgosForPlot\Argotest\\'
 output_dir = "C:\\Data\\ArgoData\\Figures\\"
 figure_size_timeline =(6,2.5) #(10,4)
 figure_size_profile = (3.5,5)#(7,10)
@@ -45,7 +46,8 @@ interp_depths = np.array(np.arange(0,max_depth,0.1))
 plot_profile_timelines = True
 plot_profile_clusters = True
 cluster_grid = True
-profile_cloud_alpha = 0.2
+profile_cloud_alpha = 0.5  #0.2
+profile_clod_marker = '.' #"none"
 enhance_temperature_min = -100.0 # -100.0 would ignore this
 #variables = ['TEMP','PSAL_ADJUSTED', 'DENSITY', 'DOX2']
 variables = ['TEMP']
@@ -219,7 +221,8 @@ if plot_profile_clusters:
                     color = float(d_sel_time[i]-clims[0])/float(clims[1]-clims[0])
                     color = sm.get_cmap()(color)
                     plt.plot(d_sel[i,:], d_sel_pres[i,:],\
-                             color = color, alpha = profile_cloud_alpha)
+                             color = color, marker = profile_clod_marker, \
+                             alpha = profile_cloud_alpha)
                 if tl_min and tl_max:
                     plt.gca().set_xlim(tl_min, tl_max)
                 plt.title(f"Float {float_name} ({f_area})\n")

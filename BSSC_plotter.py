@@ -23,9 +23,9 @@ init(autoreset=True)  # ensures colors don’t bleed into next prints
 DATE_RANGE_MIN = datetime(2000, 1, 1)
 DATE_RANGE_MAX = datetime(2025, 12, 31)
 CLOSE_FIGURES = True
-PLOT_MAPS = False
+PLOT_MAPS = True
 PLOT_PROFILES = True
-USE_PARALLEL_PLOTTING = True
+USE_PARALLEL_PLOTTING = False
 
 def load_profiles_within_radius(directory, target_lat, target_lon, radius_nm, variable):
     radius_km = radius_nm * 1.852

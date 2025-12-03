@@ -27,7 +27,8 @@ dir_to_plot="C:\\Data\\ArgoData\\ArgosForPlot\\EARise_BP\\" #default value
 output_dir = "C:\\Data\\ArgoData\\Figures\\"
 data_dir = "C:\\Data\\ArgoData\\"  # mainly for topography data
 figure_setup = "FullBaltic"# "NationalReport2023" # "EAR_UseCase" #"EARISE_deployment"#"Bothnian Sea Aranda" # "Bothnian Sea Aranda" # "GotlandD"#May change dir_to_plot
-dir_to_plot="C:\\Data\\ArgoData\\BSSC2025\\set1\\"
+#dir_to_plot="C:\\Data\\ArgoData\\BSSC2025\\set2\\coriolis\\2903899\\profiles\\"
+dir_to_plot="C:\\Data\\ArgoData\\BSSC2025\\BothnianBay\\"
 #figure_setup ="Bothnian Sea"  #"EARISE_BP" #May change dir_to_plot
 extras_to_plot = [] #[[58.6, 19.5,59.2, 20.6]]
 
