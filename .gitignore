@@ -1,9 +1,9 @@
-*ps
-*png
-*jpg
-*eps
 *pyc
+*jpg
+*png
+*eps
 *swp
-__swap*
-build
-dist
+build/
+dist/
+float_track_map.html
+float_track_with_eez.html
