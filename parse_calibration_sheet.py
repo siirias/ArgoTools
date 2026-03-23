@@ -5,6 +5,7 @@ Created on Fri Apr 22 18:16:44 2022
 Plot some polynomials, for calibration work
 @author: siirias
 
+IN PROGRESS of CONVERSION TO NEWER VERSIONS
 """
 import re
 import numpy as np
@@ -17,13 +18,40 @@ in_file2 = "41CP-3503.pdf"
 in_file3 = "SBE 41cp C3503 12Jun18.pdf"
 
 def readPDF(in_dir, in_file):
-    pdf_data = pp.PdfFileReader(open(in_dir+in_file,'rb'))
-    page_num = pdf_data.numPages
-    pdf_text = ""
-    for p in range(page_num):
-        pdf_text += pdf_data.getPage(p).extractText()
-    return pdf_text
-        
+    pdf_data = pp.PdfReader(open(in_dir + in_file, 'rb'))
+    out_lines = []
+
+    for page in pdf_data.pages:
+        rows = {}
+
+        def visitor_text(text, cm, tm, font_dict, font_size):
+            if not text.strip():
+                return
+            x = tm[4]
+            y = tm[5]
+
+            # round y a bit so fragments on same visual line end up together
+            y_key = round(y, 1)
+            rows.setdefault(y_key, []).append((x, text))
+
+        page.extract_text(visitor_text=visitor_text)
+
+        # PDF coordinates usually go bottom->top, so reverse=True
+        for y in sorted(rows.keys(), reverse=True):
+            pieces = sorted(rows[y], key=lambda v: v[0])
+
+            line = ""
+            prev_x = None
+            for x, text in pieces:
+                # insert space if there is a noticeable gap between fragments
+                if prev_x is not None and x - prev_x > 20:
+                    line += " "
+                line += text
+                prev_x = x
+
+            out_lines.append(line)
+
+    return "\n".join(out_lines)
     
 def ParseData(data_string):
     """
@@ -54,7 +82,7 @@ def ParseData(data_string):
         if bool(re.match(".*CONDUCTIVITY CALIBRATION DATA",line)):
             right_page_found = True
         if bool(re.match('.*CALIBRATION\s+DATE:',line)):
-            the_date = re.search(".*CALIBRATION\s+DATE:\s*(.+)$", line).groups()[0]
+            the_date = re.search(".*CALIBRATION\s+DATE:\s*(.+)\s+SBE.*$", line).groups()[0]
             the_date = dt.datetime.strptime(the_date,'%d-%b-%y')
             
         if(right_page_found): #check these only if we are sure page is right.
@@ -71,23 +99,18 @@ def ParseData(data_string):
             if bool(re.match(".*WBOTC =",line)):
                 WBOTC = float(re.search(".*WBOTC\s*=\s*([e\-+\d.]+)",\
                                 re.sub('\s','',line)).groups()[0])
-            if(not bool(re.match(reading_numerics,'done'))):
-                if bool(re.match("^[-+\d.e]+$",line)):
-                    numbers.append(float(line))
+            if reading_numerics != 'done':
+                print("LINE",line)
+                vals = re.findall(r"[-+]?\d+(?:\.\d+)?(?:e[-+]?\d+)?", line)
+                print(vals)
+                if len(vals) == 6:
+                    numbers_ln.append(list(map(float, vals)))
                     reading_numerics = 'yes'
-                elif bool(re.match("^[-+\d.e\s]+$",line)):
-                    tmp_line = line.split()
-                    tmp_line = list(map(float,tmp_line))
-                    numbers_ln.append(tmp_line)
-                    reading_numerics = 'yes'
-                else:
-                    if(bool(re.match(reading_numerics,'yes'))):
-                       reading_numerics = 'done'
+                elif reading_numerics == 'yes':
+                    reading_numerics = 'done'
+            
 
-    if(len(numbers)>len(numbers_ln)):
-        tmp = np.array(numbers).reshape((6,-1)) # get Bath T, Bath S, Bath C, Inst Freq, Inst C, Resid
-    else:
-        tmp = np.array(numbers_ln).transpose()
+    tmp = np.array(numbers_ln).transpose()
     return_value['date'] = the_date
     return_value['ser_num'] = ser_num
     return_value['coefficients'] = coefficients

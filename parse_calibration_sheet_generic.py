@@ -24,7 +24,7 @@ import os
 import re
 import numpy as np
 import pandas as pd
-import PyPDF2
+import PyPDF2 as pp
 
 def is_float(test_string):
     try:
@@ -45,12 +45,40 @@ def extract_text_from_pdf(filename):
 
     """    
     if filename.endswith('.pdf'):
-        with open(filename, 'rb') as file:
-            pdf_reader = PyPDF2.PdfFileReader(file)
-            text = ''
-            for page in range(pdf_reader.getNumPages()): # Loop through all the pages
-                text += pdf_reader.getPage(page).extractText()
-        return text
+        pdf_data = pp.PdfReader(open(filename, 'rb'))
+        out_lines = []
+    
+        for page in pdf_data.pages:
+            rows = {}
+    
+            def visitor_text(text, cm, tm, font_dict, font_size):
+                if not text.strip():
+                    return
+                x = tm[4]
+                y = tm[5]
+    
+                # round y a bit so fragments on same visual line end up together
+                y_key = round(y, 1)
+                rows.setdefault(y_key, []).append((x, text))
+    
+            page.extract_text(visitor_text=visitor_text)
+    
+            # PDF coordinates usually go bottom->top, so reverse=True
+            for y in sorted(rows.keys(), reverse=True):
+                pieces = sorted(rows[y], key=lambda v: v[0])
+    
+                line = ""
+                prev_x = None
+                for x, text in pieces:
+                    # insert space if there is a noticeable gap between fragments
+                    if prev_x is not None and x - prev_x > 20:
+                        line += " "
+                    line += text
+                    prev_x = x
+    
+                out_lines.append(line)
+    
+        return "\n".join(out_lines)
     else:
         return ''
 
@@ -107,12 +135,14 @@ def ParseData(data_string):
             WBOTC = float(re.search(".*WBOTC\s*=\s*([e\-+\d.]+)",\
                             re.sub('\s','',line)).groups()[0])
         if bool(re.match("^[-+\d.e]+$",line)):
+            print("Hit ones", line)
             numbers.append(float(line))
         elif bool(re.match("^[-+\d.e\s]+$",line)):
+            print("Hit lines",line)
             tmp_line = line.split()
             tmp_line = list(map(float,tmp_line))
-            numbers_ln.append(tmp_line)
-
+            for l in tmp_line:
+                numbers.append(l)
     if(len(numbers)>len(numbers_ln)):
         tmp = np.array(numbers).reshape((6,-1)) # get Bath T, Bath S, Bath C, Inst Freq, Inst C, Resid
     else:
@@ -151,6 +181,7 @@ def analyze_calibration_data(directory, out_dir = None):
     max_diff_in_c = 0.0
     the_first = True
     for filename in os.listdir(directory):
+        print(filename)
         filepath = os.path.join(directory, filename)
         file_ok = False
         if filename.endswith('.txt'):
