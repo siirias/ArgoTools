@@ -24,7 +24,8 @@ import os
 import re
 import numpy as np
 import pandas as pd
-import PyPDF2 as pp
+import pdfplumber
+
 
 def is_float(test_string):
     try:
@@ -34,54 +35,40 @@ def is_float(test_string):
         return False
 
 def extract_text_from_pdf(filename):
-    """
-    Extracts text from a PDF file.
-
-    Args:
-        filename (str): The name of the PDF file to extract text from.
-
-    Returns:
-        str: The text extracted from the PDF file.
-
-    """    
-    if filename.endswith('.pdf'):
-        pdf_data = pp.PdfReader(open(filename, 'rb'))
-        out_lines = []
-    
-        for page in pdf_data.pages:
-            rows = {}
-    
-            def visitor_text(text, cm, tm, font_dict, font_size):
-                if not text.strip():
-                    return
-                x = tm[4]
-                y = tm[5]
-    
-                # round y a bit so fragments on same visual line end up together
-                y_key = round(y, 1)
-                rows.setdefault(y_key, []).append((x, text))
-    
-            page.extract_text(visitor_text=visitor_text)
-    
-            # PDF coordinates usually go bottom->top, so reverse=True
-            for y in sorted(rows.keys(), reverse=True):
-                pieces = sorted(rows[y], key=lambda v: v[0])
-    
-                line = ""
-                prev_x = None
-                for x, text in pieces:
-                    # insert space if there is a noticeable gap between fragments
-                    if prev_x is not None and x - prev_x > 20:
-                        line += " "
-                    line += text
-                    prev_x = x
-    
-                out_lines.append(line)
-    
-        return "\n".join(out_lines)
-    else:
+    if not filename.endswith('.pdf'):
         return ''
 
+    out_lines = []
+
+    with pdfplumber.open(filename) as pdf:
+        for page in pdf.pages:
+            words = page.extract_words(x_tolerance=1, y_tolerance=1)
+
+            rows = []
+            row_tol = 2
+
+            for w in words:
+                x = w["x0"]
+                y = w["top"]
+                text = w["text"]
+
+                placed = False
+                for row in rows:
+                    if abs(row["y"] - y) <= row_tol:
+                        row["items"].append((x, text))
+                        placed = True
+                        break
+
+                if not placed:
+                    rows.append({"y": y, "items": [(x, text)]})
+
+            rows.sort(key=lambda r: r["y"])
+
+            for row in rows:
+                row["items"].sort(key=lambda t: t[0])
+                out_lines.append(" ".join(text for x, text in row["items"]))
+
+    return "\n".join(out_lines)
 
 def ParseData(data_string):
     """
@@ -117,7 +104,6 @@ def ParseData(data_string):
     WBOTC = 0
     coefficients = []
     numbers = [] # if numbers are each in their own line
-    numbers_ln = [] # if each row has six values
     for line in data_string.split('\n'):
         if bool(re.match(".*SERIAL NUMBER",line)):
             ser_num = re.search(":\s*(\d+)",line).groups()[0]
@@ -135,19 +121,14 @@ def ParseData(data_string):
             WBOTC = float(re.search(".*WBOTC\s*=\s*([e\-+\d.]+)",\
                             re.sub('\s','',line)).groups()[0])
         if bool(re.match("^[-+\d.e]+$",line)):
-            print("Hit ones", line)
             numbers.append(float(line))
         elif bool(re.match("^[-+\d.e\s]+$",line)):
-            print("Hit lines",line)
             tmp_line = line.split()
             tmp_line = list(map(float,tmp_line))
             for l in tmp_line:
                 numbers.append(l)
-    if(len(numbers)>len(numbers_ln)):
-        tmp = np.array(numbers).reshape((6,-1)) # get Bath T, Bath S, Bath C, Inst Freq, Inst C, Resid
-    else:
-        tmp = np.array(numbers_ln).transpose()
-    
+    tmp = np.array(numbers).reshape((-1,6)).transpose() # get Bath T, Bath S, Bath C, Inst Freq, Inst C, Resid
+
     return_value['ser_num'] = ser_num
     return_value['coefficients'] = coefficients
     return_value['CPcor'] = CPcor 
@@ -160,7 +141,26 @@ def ParseData(data_string):
     return_value['inst_c'] = tmp[4,:]
     return_value['resid'] = tmp[5,:]
     return return_value
-        
+
+
+def print_parsed_data(parsed_data):
+    d = parsed_data
+    coef = d['coefficients']
+    print(f"PARCED DATA for {d['ser_num']}")
+    print("coefficients:")
+    print(f"g:{coef[0]}, h:{coef[1]}, i:{coef[2]}, j:{coef[3]}")
+    print(f"CPcor:{d['CPcor']}, CTCor:{d['CTcor']}, WBOTC:{d['WBOTC']}")
+    print("data")
+    #print(len(d['bath_t']), len(d['bath_s']), len(d['bath_c']), \
+    #      len(d['inst_freq']), len(d['inst_c']), len(d['resid']))
+    cw = 10
+    for i in range(len(d['bath_t'])):
+        dat = [d['bath_t'][i], d['bath_s'][i], d['bath_c'][i], \
+              d['inst_freq'][i], d['inst_c'][i], d['resid'][i]]
+        print(f"{dat[0]:{cw}}\t{dat[1]:{cw}}\t{dat[2]:{cw}}\t{dat[3]:{cw}}\t{dat[4]:{cw}}\t{dat[5]:{cw}}")
+    # print(parsed_data)
+    
+    
 def freo_to_c(data, freq, pressure, temp):
     """
     f = INST FREQ * sqrt(1.0 + WBOTC * t) / 1000.0
@@ -181,7 +181,6 @@ def analyze_calibration_data(directory, out_dir = None):
     max_diff_in_c = 0.0
     the_first = True
     for filename in os.listdir(directory):
-        print(filename)
         filepath = os.path.join(directory, filename)
         file_ok = False
         if filename.endswith('.txt'):
@@ -201,6 +200,7 @@ def analyze_calibration_data(directory, out_dir = None):
             contents = contents[:contents.rfind('Date, Slope Correction')]
         if file_ok:                
             data = ParseData(contents)
+            print_parsed_data(data)
             if the_first:
                 the_first_file = filename
                 the_sensor = data['ser_num']
@@ -211,10 +211,11 @@ def analyze_calibration_data(directory, out_dir = None):
                 orig_data = data
                 the_first = False
             else:
-                if data['ser_num'] is not the_sensor:
+                if data['ser_num'].strip() != the_sensor.strip():
+                    print(type(data['ser_num']), type(the_sensor),len(data['ser_num']),len(the_sensor))
+                    print(data['ser_num'],the_sensor)
                     tmp_str = f"WARNING!! Sensor {data['ser_num']} != {the_sensor} !!!!\n"
                     result_text += tmp_str
-                    print(tmp_str)
                 result_text += \
                     "Difference between {} and {}\n"\
                     .format(the_first_file, filename)
@@ -234,7 +235,6 @@ def analyze_calibration_data(directory, out_dir = None):
             result_text += "average error: {}\n\n".format(average_diff_in_c)
 
     result_text += "Largest difference in conductivity: {}".format(max_diff_in_c)
-    print(result_text)
     if(out_dir):
         out_filename = f'results_sensor_{data["ser_num"]}.txt'
         if not os.path.exists(out_dir):
