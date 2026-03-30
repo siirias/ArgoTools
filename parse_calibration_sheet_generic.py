@@ -176,6 +176,7 @@ def freo_to_c(data, freq, pressure, temp):
     return c
 
 def analyze_calibration_data(directory, out_dir = None):
+    failed_files = []
     result_text = ''
     the_sensor = None
     max_diff_in_c = 0.0
@@ -198,41 +199,44 @@ def analyze_calibration_data(directory, out_dir = None):
                 if "CONDUCTIVITY CALIBRATION DATA" in t:
                     contents = 'SENSOR SERIAL NUMBER' + t
             contents = contents[:contents.rfind('Date, Slope Correction')]
-        if file_ok:                
-            data = ParseData(contents)
-            print_parsed_data(data)
-            if the_first:
-                the_first_file = filename
-                the_sensor = data['ser_num']
-                result_text +="SENSOR: {}\n".format(the_sensor)
-                result_text +=\
-                    "Recalculation with {}, shows error due rounding etc.\n"\
-                    .format(the_first_file)
-                orig_data = data
-                the_first = False
-            else:
-                if data['ser_num'].strip() != the_sensor.strip():
-                    print(type(data['ser_num']), type(the_sensor),len(data['ser_num']),len(the_sensor))
-                    print(data['ser_num'],the_sensor)
-                    tmp_str = f"WARNING!! Sensor {data['ser_num']} != {the_sensor} !!!!\n"
-                    result_text += tmp_str
-                result_text += \
-                    "Difference between {} and {}\n"\
-                    .format(the_first_file, filename)
+        if file_ok:
+            print(filename)                
+            try:
+                data = ParseData(contents)
+                print_parsed_data(data)
+                if the_first:
+                    the_first_file = filename
+                    the_sensor = data['ser_num']
+                    result_text +="SENSOR: {}\n".format(the_sensor)
+                    result_text +=\
+                        "Recalculation with {}, shows error due rounding etc.\n"\
+                        .format(the_first_file)
+                    orig_data = data
+                    the_first = False
+                else:
+                    if data['ser_num'].strip() != the_sensor.strip():
+                        tmp_str = f"WARNING!! Sensor {data['ser_num']} != {the_sensor} !!!!\n"
+                        result_text += tmp_str
+                    result_text += \
+                        "Difference between {} and {}\n"\
+                        .format(the_first_file, filename)
                 
-            average_diff_in_c = 0.0
-            how_many = 0
-            result_text+="T(C)\tNew_c\t\tOriginal_c\tDifference\n"
-            for t,f,c in zip(orig_data['bath_t'],orig_data['inst_freq'],orig_data['bath_c']):
-                new_c = freo_to_c(data,f,10.0,t)
-                result_text+="{: 4.1f}\t{: 10.8f}\t{: 10.8f}\t{: 10.8f}\n".format(\
-                                t,new_c, c, c - new_c)
-                average_diff_in_c += np.abs(c - new_c)
-                how_many += 1
-                if np.abs(c - new_c)>max_diff_in_c :
-                    max_diff_in_c = np.abs(c - new_c)
-            average_diff_in_c = average_diff_in_c/float(how_many)
-            result_text += "average error: {}\n\n".format(average_diff_in_c)
+                average_diff_in_c = 0.0
+                how_many = 0
+                result_text+="T(C)\tNew_c\t\tOriginal_c\tDifference\n"
+                for t,f,c in zip(orig_data['bath_t'],orig_data['inst_freq'],orig_data['bath_c']):
+                    new_c = freo_to_c(data,f,10.0,t)
+                    result_text+="{: 4.1f}\t{: 10.8f}\t{: 10.8f}\t{: 10.8f}\n".format(\
+                                    t,new_c, c, c - new_c)
+                    average_diff_in_c += np.abs(c - new_c)
+                    how_many += 1
+                    if np.abs(c - new_c)>max_diff_in_c :
+                        max_diff_in_c = np.abs(c - new_c)
+                average_diff_in_c = average_diff_in_c/float(how_many)
+                result_text += "average error: {}\n\n".format(average_diff_in_c)
+            except:
+                print(f"Failed to read file {filename}")
+                failed_files.append(filename)
 
     result_text += "Largest difference in conductivity: {}".format(max_diff_in_c)
     if(out_dir):
@@ -242,9 +246,13 @@ def analyze_calibration_data(directory, out_dir = None):
         with open(out_dir + out_filename,'w') as f:
             f.writelines(result_text)
             print(f"Results written in {out_dir+out_filename}")
+    if(len(failed_files)>0):
+        print("failed files:")
+        for i in failed_files:
+            print(i)
     return result_text
 
 # Example usage
 out_dir = 'C:/data/argodata/calib_sheet_test/result/'
 #result = analyze_calibration_data('c:/data/argodata/calib_sheet_test/')
-result = analyze_calibration_data('c:/data/argodata/calib_sheet_test/pdfs/', out_dir)
+result = analyze_calibration_data('c:/data/argodata/calib_sheet_test/morepdf/sensor_5699/', out_dir)
