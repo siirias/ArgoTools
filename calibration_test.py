@@ -10,6 +10,7 @@ from dataclasses import dataclass
 import matplotlib.pyplot as plt
 import xarray as xr
 import argopy
+import gsw
 from argopy import DataFetcher, ArgoFloat
 from argopy import ArgoIndex  #  This is the class to work with Argo index
 from argopy.plot import scatter_map, scatter_plot  # Functions to easily make maps and plots
@@ -18,6 +19,7 @@ from argopy.plot import scatter_map, scatter_plot  # Functions to easily make ma
 import warnings
 warnings.filterwarnings("ignore")
 xr.set_options(display_expand_attrs = False)
+LOAD_DATA = True  #WHen testing aroudn several times, no need to redownload the data every time.
 
 
 @dataclass
@@ -116,11 +118,47 @@ def conductivity_to_inst_freq(target_cond, temp_C, pres_dbar, coeffs,
 
     return inst_freq
 
+def conductivity_to_psal(cond_Sm, temp_C, pres_dbar):
+    cond_mScm = np.asarray(cond_Sm, dtype=float) * 10.0
+    SP = gsw.SP_from_C(cond_mScm, temp_C, pres_dbar)
+    return np.nan_to_num(SP, nan=0.0)
+
+def psal_to_conductivity(psal, temp_C, pres_dbar,
+                         cmin_Sm=0.001, cmax_Sm=30.0):
+    psal = np.asarray(psal, dtype=float)
+    temp_C = np.asarray(temp_C, dtype=float)
+    pres_dbar = np.asarray(pres_dbar, dtype=float)
+
+    psal, temp_C, pres_dbar = np.broadcast_arrays(psal, temp_C, pres_dbar)
+    out = np.empty_like(psal, dtype=float)
+
+    flat_psal = psal.ravel()
+    flat_t = temp_C.ravel()
+    flat_p = pres_dbar.ravel()
+    flat_out = out.ravel()
+
+    for i in range(flat_psal.size):
+        sp = flat_psal[i]
+        t = flat_t[i]
+        p = flat_p[i]
+
+        if np.isnan(sp) or np.isnan(t) or np.isnan(p):
+            flat_out[i] = np.nan
+            continue
+        if np.abs(sp) <= cmin_Sm:
+            flat_out[i] = 0.0
+            continue
+        def residual(c_Sm):
+            sp_est = gsw.SP_from_C(c_Sm * 10.0, t, p)
+            return float(sp_est) - sp
+        
+        flat_out[i] = brentq(residual, cmin_Sm, cmax_Sm)
+
+    return out
 
 #argopy.set_options(ds='bgc')
 argopy.set_options(ds='phy')
 
-LOAD_DATA = True  #WHen testing aroudn several times, no need to redownload the data every time.
 float_no = 6902013
 #float_no = 6901773
 
@@ -130,9 +168,7 @@ if LOAD_DATA:
     data = DataFetcher(mode = 'expert', params = 'all').float(float_no).load()
 
 
-#scatter_map(data.index, set_global=False)
-#data.plot('trajectory')
-#scatter_plot(data.data, 'TEMP')
+# Plot the profile cloud, to see what we are workign with
 plt.figure()
 for cycle_num, profile_ds in data.data.groupby("CYCLE_NUMBER"):
     S = profile_ds.PSAL_ADJUSTED
@@ -159,23 +195,36 @@ coeffs3 = SBE41cpCoefficients(
     CTcor=3.2500e-006,
     WBOTC=-4.2500e-007
 )
+
+# Plot the difference with two sets of calibration parameters as a cloud
 plt.figure()
 for cycle_num, test_d in data.data.groupby("CYCLE_NUMBER"):
     S = test_d.PSAL_ADJUSTED
     T = test_d.TEMP_ADJUSTED
     P = test_d.PRES_ADJUSTED
-    freq = conductivity_to_inst_freq(S, T,P, coeffs)
-    S_new = inst_freq_to_conductivity(freq, T, P, coeffs3)
+    Cond = psal_to_conductivity(S,T,P)
+    f = conductivity_to_inst_freq(Cond, T,P, coeffs)
+    Cond_new = inst_freq_to_conductivity(f, T, P, coeffs2)
+    S_new = conductivity_to_psal(Cond_new,T,P)
     plt.plot(S_new-S,-1.0*P)
     plt.grid(True)
 
 
 
-#Test the adjustment.
-
-# cond = inst_freq_to_conductivity([2627.11, 5185.88, 5380.60], [22.0, 1.0,5.0], 0.0, coeffs)
-# for i in cond:
-#     print(f"Conductivity: {i:.5f} S/m")  
-# freq = conductivity_to_inst_freq([0.0,2.97955,3.28698], [22.0, 1.0,5.0], 0.0, coeffs)
-# for i in freq:
-#     print(f"Frequency: {i:.5f}")
+# Test the round trip of fucntions, to see how much error comes,
+# When the data is rotated:
+# frequency -> conductivity -> Salinity -> conductivity frequency
+Temp = [22.0, 1.0, 4.4999, 15.0, 18.5, 23.994, 29.0, 32.50]
+Pres = [0.0,  0.0, 0.0, 0.0,  0.0,  0.0,    0.0,  0.0]
+Freq = [2627.11, 5185.88, 5380.60,5959.86,6150.29,6445.61,6710.37,6892.70]
+Conduct = [0.0, 2.97956,  3.28699, 4.26986, 4.61540, 5.17339, 5.69650, 6.06937]
+cond = inst_freq_to_conductivity(Freq, Temp, Pres, coeffs)
+Salinities = []
+for i,T,P in zip(cond,Temp,Pres):
+    sal = conductivity_to_psal(i,T,P)
+    Salinities.append((sal))
+    print(f"Conductivity: {i:.5f} S/m = Salinity: {sal:.5f}")  
+new_cond = psal_to_conductivity(Salinities,Temp, Pres)
+new_freq = conductivity_to_inst_freq(cond, Temp, Pres, coeffs)
+for new_f,old_f,new_cond,old_cond in zip(new_freq,Freq,new_cond,cond):
+    print(f"New Frequency: {new_f:.2f} old {old_f:.2f} diff:{new_f-old_f:.4}")
