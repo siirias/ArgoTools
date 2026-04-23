@@ -26,7 +26,7 @@ LOAD_DATA = True  #WHen testing aroudn several times, no need to redownload the 
 class SBE41cpCoefficients:
     """Calibration coefficients for SBE 41cp conductivity sensor."""
     ## f = INST_FREQ * sqrt(1.0 + WBOTC * t) / 1000.0
-    ## Conductivity = (g + h*f + i*f² + j*f³) / (1 + δ*t + ε*p)
+    ## Conductivity = (g + h*f^2 + i*f^3 + j*f^4) / (1 + CTcor*Temp + CPcor*Pres)
     g: float = -1.028007e+000
     h: float =  1.495265e-001
     i: float = -3.432114e-004
@@ -145,7 +145,7 @@ def psal_to_conductivity(psal, temp_C, pres_dbar,
         if np.isnan(sp) or np.isnan(t) or np.isnan(p):
             flat_out[i] = np.nan
             continue
-        if np.abs(sp) <= cmin_Sm:
+        if np.abs(sp) <= 1e-6:
             flat_out[i] = 0.0
             continue
         def residual(c_Sm):
@@ -171,8 +171,8 @@ if LOAD_DATA:
 # Plot the profile cloud, to see what we are workign with
 plt.figure()
 for cycle_num, profile_ds in data.data.groupby("CYCLE_NUMBER"):
-    S = profile_ds.PSAL_ADJUSTED
-    P = profile_ds.PRES_ADJUSTED
+    S = profile_ds.PSAL
+    P = profile_ds.PRES
     plt.plot(S,-1.0*P)
     plt.grid(True)
 
@@ -199,9 +199,9 @@ coeffs3 = SBE41cpCoefficients(
 # Plot the difference with two sets of calibration parameters as a cloud
 plt.figure()
 for cycle_num, test_d in data.data.groupby("CYCLE_NUMBER"):
-    S = test_d.PSAL_ADJUSTED
-    T = test_d.TEMP_ADJUSTED
-    P = test_d.PRES_ADJUSTED
+    S = test_d.PSAL
+    T = test_d.TEMP
+    P = test_d.PRES
     Cond = psal_to_conductivity(S,T,P)
     f = conductivity_to_inst_freq(Cond, T,P, coeffs)
     Cond_new = inst_freq_to_conductivity(f, T, P, coeffs2)
@@ -225,6 +225,6 @@ for i,T,P in zip(cond,Temp,Pres):
     Salinities.append((sal))
     print(f"Conductivity: {i:.5f} S/m = Salinity: {sal:.5f}")  
 new_cond = psal_to_conductivity(Salinities,Temp, Pres)
-new_freq = conductivity_to_inst_freq(cond, Temp, Pres, coeffs)
-for new_f,old_f,new_cond,old_cond in zip(new_freq,Freq,new_cond,cond):
-    print(f"New Frequency: {new_f:.2f} old {old_f:.2f} diff:{new_f-old_f:.4}")
+new_freq = conductivity_to_inst_freq(new_cond, Temp, Pres, coeffs)
+for n_f,o_f,n_c,o_c in zip(new_freq,Freq,new_cond,cond):
+    print(f"New Frequency: {n_f:.2f} old {o_f:.2f} diff:{n_f-o_f:.4f}")
