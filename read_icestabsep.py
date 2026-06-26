@@ -15,7 +15,9 @@ def save_to_mat(file_path, data):
     mat_data = {col: data[col].values for col in data.columns}
 
     # Save the dictionary to a .mat file
-    scipy.io.savemat(file_path, mat_data)
+    scipy.io.savemat(file_path, mat_data, do_compression=True)
+    
+    
     
 def read_polygon_points(file_path):
     with open(file_path, 'r') as file:
@@ -50,27 +52,49 @@ def reformat_csv(filename):
 
 def process_data(tbl):
     # Group by 'IDv' and aggregate data
-    grouped = tbl.groupby('IDv').agg({
-        'Longitude [degrees_east]': 'first',
-        'Latitude [degrees_north]': 'first',
-        'DATESv': 'first',
-        'Pressure [dbar]': list,
-        'Temperature [degC]': list,
-        'Practical Salinity [dmnless]': list,
-        'SOURCEv': 'first'
-    }).reset_index()
-
-    # Rename columns as needed
-    grouped.rename(columns={
-        'Longitude [degrees_east]': 'LONG',
-        'Latitude [degrees_north]': 'LAT',
-        'DATESv': 'DATES',
-        'Pressure [dbar]': 'PRES',
-        'Temperature [degC]': 'TEMP',
-        'Practical Salinity [dmnless]': 'SAL',
-        'SOURCEv': 'SOURCE'
-    }, inplace=True)
-
+    try: #old dataformat
+        grouped = tbl.groupby('IDv').agg({
+            'Longitude [degrees_east]': 'first',
+            'Latitude [degrees_north]': 'first',
+            'DATESv': 'first',
+            'Pressure [dbar]': list,
+            'Temperature [degC]': list,
+            'Practical Salinity [dmnless]': list,
+            'SOURCEv': 'first'
+        }).reset_index()
+    
+        # Rename columns as needed
+        grouped.rename(columns={
+            'Longitude [degrees_east]': 'LONG',
+            'Latitude [degrees_north]': 'LAT',
+            'DATESv': 'DATES',
+            'Pressure [dbar]': 'PRES',
+            'Temperature [degC]': 'TEMP',
+            'Practical Salinity [dmnless]': 'SAL',
+            'SOURCEv': 'SOURCE'
+        }, inplace=True)
+    except KeyError: #then try new format
+        grouped = tbl.groupby('IDv').agg({
+            'Longitude [degrees_east]': 'first',
+            'Latitude [degrees_north]': 'first',
+            'DATESv': 'first',
+            'Pressure (PRESPR01_UPDB) [dbar]': list,
+            'Temperature (TEMPPR01_UPAA) [degC]': list,
+            'Salinity (PSALPR01_UUUU) [dmnless]': list,
+            'SOURCEv': 'first'
+        }).reset_index()
+    
+        # Rename columns as needed
+        grouped.rename(columns={
+            'Longitude [degrees_east]': 'LONG',
+            'Latitude [degrees_north]': 'LAT',
+            'DATESv': 'DATES',
+            'Pressure (PRESPR01_UPDB) [dbar]': 'PRES',
+            'Temperature (TEMPPR01_UPAA) [degC]': 'TEMP',
+            'Salinity (PSALPR01_UUUU) [dmnless]': 'SAL',
+            'SOURCEv': 'SOURCE'
+        }, inplace=True)
+    
     # Add QCLEVEL and TYPE columns
     grouped['QCLEVEL'] = 'ICES'
     grouped['TYPE'] = 'ICES'
@@ -89,7 +113,6 @@ def read_icestabsep(filename, ofilename, polygon_name, datalines = None):
     
     tbl = pd.read_csv(reformat_csv(filename))
 #    tbl = pd.read_csv(reformat_csv(filename), delimiter = '\\t', engine = 'python')
-    print(tbl.columns)
     try: #old format               
         excl = tbl[(tbl['QV:ODV:Depth [m]'] > 0) | 
                    (tbl['QV:ODV:Pressure [dbar]'] > 0) | 
@@ -99,18 +122,34 @@ def read_icestabsep(filename, ofilename, polygon_name, datalines = None):
     except: #new format
         excl = tbl[(tbl['QV:ODV:Depth (ADEPZZ01_ULAA) [m]'] > 0) | 
                    (tbl['QV:ODV:Pressure (PRESPR01_UPDB) [dbar]'] > 0) | 
-                   (tbl['Temperature (TEMPPR01_UPAA) [degC]'] > 0)| 
-                   (tbl['Salinity (PSALPR01_UUUU) [dmnless]'] > 0) 
+                   (tbl['QV:ODV:Temperature (TEMPPR01_UPAA) [degC]'] > 0)| 
+                   (tbl['QV:ODV:Salinity (PSALPR01_UUUU) [dmnless]'] > 0) 
                     ].index
     
     tbl.drop(excl, inplace=True)
 
     # Create new columns
     tbl['SOURCEv'] = 'ices_' + tbl['Cruise'].astype(str) + '_' + tbl['Station'].astype(str)
-    tbl['DATESTR'] = tbl['Year'].astype(str) + tbl['Month'].astype(str).str.zfill(2) + \
-                     tbl['Day'].astype(str).str.zfill(2) + tbl['Hour'].astype(str).str.zfill(2) + \
-                     tbl['Minute'].astype(str).str.zfill(2) + '00'
+    try:
+        # Old ICES format
+        tbl['DATESTR'] = (
+            tbl['Year'].astype(str)
+            + tbl['Month'].astype(str).str.zfill(2)
+            + tbl['Day'].astype(str).str.zfill(2)
+            + tbl['Hour'].astype(str).str.zfill(2)
+            + tbl['Minute'].astype(str).str.zfill(2)
+            + '00'
+        )
+    
+    except KeyError:
+        # New ICES format
+        tbl['DATESTR'] = (
+            pd.to_datetime(tbl['yyyy-mm-ddThh:mm:ss.sss'],format='mixed',utc=True)
+          .dt.strftime('%Y%m%d%H%M%S'))
+                
+    
     tbl['DATESv'] = tbl['DATESTR'].astype(float)
+
     tbl['IDv'] = 'ices_' + tbl['Cruise'].astype(str) + '_' + tbl['Station'].astype(str) + '_' + \
                  tbl['Longitude [degrees_east]'].astype(str) + '_' + \
                  tbl['Latitude [degrees_north]'].astype(str)
