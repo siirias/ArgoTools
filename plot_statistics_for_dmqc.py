@@ -10,13 +10,18 @@ import pandas as pd
 import re
 import matplotlib.pyplot as plt
 
-data_dir="C:\\Data\\EARiseQC\\FTP\\FMI\\" #default value
+#data_dir="C:\\Data\\EARiseQC\\FTP\\FMI\\" #default value
+data_dir= r"C:\Data\DMQC\UPDATE_test\\" 
 output_dir = "C:\\Data\\ArgoData\\Figures\\"
 
 files =['ICES_Statistics_Practical_Salinity_dmnless_by_depth_in_BothSea.csv',
         'ICES_Statistics_Practical_Salinity_dmnless_by_depth_in_BP.csv',
         'ICES_Statistics_Temperature_degC_by_depth_in_BothSea.csv', 
         'ICES_Statistics_Temperature_degC_by_depth_in_BP.csv']
+
+
+
+
 
 ylimits = [(0.0,120.0), (0.0,230.0), (0.0,120.0), (0.0,230.0)]
 fig_size = [8,10]

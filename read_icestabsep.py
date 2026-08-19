@@ -110,8 +110,8 @@ def read_icestabsep(filename, ofilename, polygon_name, datalines = None):
     if not datalines:
         datalines = [2,-1]
     
-    
-    tbl = pd.read_csv(reformat_csv(filename))
+    tbl = pd.read_csv(reformat_csv(filename), sep=None, engine='python', comment='/') #sep=None should work with tabs or commas
+    #tbl = pd.read_csv(reformat_csv(filename))
 #    tbl = pd.read_csv(reformat_csv(filename), delimiter = '\\t', engine = 'python')
     try: #old format               
         excl = tbl[(tbl['QV:ODV:Depth [m]'] > 0) | 
@@ -162,7 +162,7 @@ def read_icestabsep(filename, ofilename, polygon_name, datalines = None):
     return  tbl, tbl_formatted
 
 w_dir = r'C:\Data\DMQC\UPDATE_test\\'  # Work directory
-data_file = 'ICESCTD00-26.csv'
+data_file = 'ICESCTD00-26_bottle.csv'
 data_sets = [
     {'source':f'{w_dir}{data_file}','output':f'{w_dir}fmi_ctd_1601.mat', 'polygon':f'{w_dir}polygon_1601.txt'},
     {'source':f'{w_dir}{data_file}','output':f'{w_dir}fmi_ctd_1602.mat', 'polygon':f'{w_dir}polygon_1602.txt'},

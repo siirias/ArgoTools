@@ -1,0 +1,10 @@
+POLYGON((10.00 53.00, 10.00 60.00, 18.00 66.00, 30.00 66.00, 30.00 53.00, 10.00 53.00))
+
+Comma separated
+Include Original variables
+ISO 8601 dates
+
+https://ocean.ices.dk/station-data
+
+
+Remove the metadata rows at the start, leave just the header.
