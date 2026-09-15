@@ -18,8 +18,8 @@ import scipy.io
 import matplotlib.pyplot as plt
 
 # ---- Edit these if running without command-line args ----------------------
-OLD_FILE = r'C:\Data\DMQC\UPDATE_test\23_fmi_ctd_1501.mat'
-NEW_FILE = r'C:\Data\DMQC\UPDATE_test\26v2_fmi_ctd_1501.mat'
+OLD_FILE = '/mnt/c/Data/DMQC/UPDATE_test/23_fmi_ctd_1501.mat'
+NEW_FILE = '/mnt/c/Data/DMQC/UPDATE_test/fmi_ctd_1501.mat'
 # -----------------------------------------------------------------------------
 
 def load_lonlat(mat_path):

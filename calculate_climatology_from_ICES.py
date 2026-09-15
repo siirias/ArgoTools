@@ -105,7 +105,7 @@ def plot_profile_cloud(selected, area_name, var_name, out_path):
     fig.savefig(out_path, dpi=200)
     plt.close(fig)
 
-w_dir = Path(r"C:\Data\DMQC\UPDATE_test\\")
+w_dir = Path(r'/mnt/c/Data/DMQC/UPDATE_test/')
 
 matfiles = [
     w_dir / "fmi_ctd_1601.mat",

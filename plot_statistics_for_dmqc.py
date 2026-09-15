@@ -11,8 +11,8 @@ import re
 import matplotlib.pyplot as plt
 
 #data_dir="C:\\Data\\EARiseQC\\FTP\\FMI\\" #default value
-data_dir= r"C:\Data\DMQC\UPDATE_test\\" 
-output_dir = "C:\\Data\\ArgoData\\Figures\\"
+data_dir= r"/mnt/c/Data/DMQC/UPDATE_test/" 
+output_dir = r"/mnt/c/Data/ArgoData/Figures/"
 
 files =['ICES_Statistics_Practical_Salinity_dmnless_by_depth_in_BothSea.csv',
         'ICES_Statistics_Practical_Salinity_dmnless_by_depth_in_BP.csv',
@@ -46,7 +46,7 @@ for f,ylims in zip(files,ylimits):
     depths = \
         np.array(list(\
         map(lambda y: (float(y[0])+float(y[1]))/2.0,\
-        map(lambda x: re.search('([\d\.]+)[^\d]*([\d\.]+)',x)\
+        map(lambda x: re.search(r'([\d\.]+)[^\d]*([\d\.]+)',x)\
         .groups(), data['PRES_window']))))
     name_extra = ''
     plt.figure(figsize = fig_size)
@@ -69,5 +69,5 @@ for f,ylims in zip(files,ylimits):
     filename = "DMQC{}_{}{}".format(variable_name, area,name_extra)
     plt.savefig(output_dir+filename+'.png' ,\
                 facecolor='w',dpi=fig_dpi,bbox_inches='tight')
-
+    print("Saved figure to {}".format(output_dir+filename+'.png'))
 
