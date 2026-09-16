@@ -5,9 +5,7 @@ Created on Sat Apr  2 14:17:25 2022
 Plotting the statistical analysis for DMQC 
 @author: siirias
 """
-import numpy as np
 import pandas as pd
-import re
 import matplotlib.pyplot as plt
 
 #data_dir="C:\\Data\\EARiseQC\\FTP\\FMI\\" #default value
@@ -42,12 +40,7 @@ for f,ylims in zip(files,ylimits):
     if variable_name in ['Temperature']:
         unit = '°C'
     
-    #bit of gludge to get the pressure window into a mean value:
-    depths = \
-        np.array(list(\
-        map(lambda y: (float(y[0])+float(y[1]))/2.0,\
-        map(lambda x: re.search(r'([\d\.]+)[^\d]*([\d\.]+)',x)\
-        .groups(), data['PRES_window']))))
+    depths = data["midbin"].to_numpy()
     name_extra = ''
     plt.figure(figsize = fig_size)
     plt.plot(data['mean'], depths,'k.-')

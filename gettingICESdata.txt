@@ -8,3 +8,18 @@ https://ocean.ices.dk/station-data
 
 
 Remove the metadata rows at the start, leave just the header.
+
+#further processing the data:
+#build .mat files
+python read_icestabsep.py
+
+# calculate the climatology from the files
+python calculate_climatology_from_ICES.py --first-year 1995 --last-year 2025
+
+# plot figures
+python plot_statistics_for_dmqc.py
+
+
+#debugging/comparing new and old files
+compare_map_points.py  #edit in filenames of two versions of .mat files to compare differences
+find_missing_profiles.py #similar, lists profiles not found on either.
