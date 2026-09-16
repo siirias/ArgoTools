@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 import argparse
-import glob
-import os
 from pathlib import Path
 from datetime import datetime, timedelta
 
+from matplotlib.backend_bases import key_press_handler
 from matplotlib.colors import LinearSegmentedColormap, Normalize
 from matplotlib.cm import ScalarMappable
 import numpy as np
@@ -14,11 +13,13 @@ ARGO_JULD_REF = datetime(1950, 1, 1)
 
 def _get_profile_1d(var, iprof=0):
     """Return 1D array for iprof from a netCDF4 variable (supports 1D or 2D)."""
+    if iprof < 0:
+        return None
     if var.ndim == 2:
         if var.shape[0] <= iprof:
             return None
         return var[iprof, :].astype(np.float64)
-    elif var.ndim == 1:
+    elif var.ndim == 1 and iprof == 0:
         return var[:].astype(np.float64)
     return None
 
@@ -26,11 +27,12 @@ def _get_profile_1d(var, iprof=0):
 def _mask_fill(arr, fill):
     if arr is None:
         return None
-    a = np.array(arr, dtype=np.float64, copy=False)
-    if fill is None:
-        # Some Argo vars can be NaN-filled in practice, so keep this too:
-        return np.where(np.isfinite(a), a, np.nan)
-    return np.where(a != fill, a, np.nan)
+    a = np.ma.filled(np.ma.asarray(arr, dtype=np.float64), np.nan)
+    valid = np.isfinite(a)
+    if fill is not None:
+        valid &= a != fill
+    return np.where(valid, a, np.nan)
+
 
 def _read_juld(nc_path, iprof=0):
     """Read JULD for profile iprof; returns float days since 1950-01-01 or np.nan."""
@@ -38,18 +40,15 @@ def _read_juld(nc_path, iprof=0):
         if "JULD" not in ds.variables:
             return np.nan
         v = ds.variables["JULD"]
-        j = _get_profile_1d(v, iprof=iprof)
-        if j is None or len(j) == 0:
+        # JULD has one timestamp per N_PROF entry, unlike depth-series data.
+        if v.ndim == 0 or iprof < 0 or iprof >= v.shape[0]:
             return np.nan
-        # JULD is usually scalar per profile; but sometimes stored as length-1 arrays depending on templates
-        val = float(np.ravel(j)[0])
-        fill = getattr(v, "_FillValue", None)
-        if fill is not None and val == float(fill):
+        values = _mask_fill(v[iprof], getattr(v, "_FillValue", None)).ravel()
+        if values.size != 1:
             return np.nan
-        if not np.isfinite(val):
-            return np.nan
-        return val
-    
+        return float(values[0])
+
+
 def _read_profile_xy(nc_path, x_var, y_var="PRES", iprof=0):
     """
     Read x and y as 1D arrays for profile iprof.
@@ -81,18 +80,6 @@ def _juld_to_datetime(juld_days):
     return ARGO_JULD_REF + timedelta(days=float(juld_days))
 
 
-def _collect_cloud(file_list, x_names, y_name="PRES", iprof=0):
-    """Return list of (x, y) profiles found."""
-    out = []
-    used_names = {}
-    for p in file_list:
-        x, y, used = _read_profile_xy(p, x_names=x_names, y_name=y_name, iprof=iprof)
-        if x is None:
-            continue
-        out.append((x, y))
-        used_names[used] = used_names.get(used, 0) + 1
-    return out, used_names
-
 def _cycle_from_filename(path):
     # expects R<id>_003.nc style
     name = Path(path).name
@@ -102,11 +89,14 @@ def _cycle_from_filename(path):
     return "???"
 
 
-def plot_cloud(ax, profiles, label, alpha=0.08, linewidth=0.7):
-    for x, y in profiles:
-        ax.plot(x, y, alpha=alpha, linewidth=linewidth, label=None)
-    # add a dummy handle for legend
-    ax.plot([], [], label=label)
+def available_profile_indices(rfiles):
+    """Return indices present in at least one file, and each file's profile count."""
+    counts = []
+    for path in rfiles:
+        with Dataset(path, "r") as ds:
+            counts.append(len(ds.dimensions["N_PROF"]))
+    return list(range(max(counts, default=0))), counts
+
 
 def prepare_time_norm_and_labels(juld):
     """
@@ -145,12 +135,12 @@ def make_temp_psal_cloud_figure(
     linewidth=0.7,
 ):
     """
-    Create (fig, (axT, axS), cbar) plotting TEMP and PSAL clouds from R-files only.
+    Plot TEMP and PSAL clouds from R-files only.
     Lines are colored by time (JULD) using the provided colormap.
     A single horizontal colorbar is placed under both panels.
 
     Returns:
-        fig, (axT, axS), cbar
+        fig, (axT, axS), cbar, lines_temp, lines_psal
     """
     lines_temp = []
     lines_psal = []
@@ -171,18 +161,19 @@ def make_temp_psal_cloud_figure(
     for p, t in zip(rfiles, juld_filled):
         c = cmap_lines(norm(t))  # same colormap for both panels so one colorbar matches
 
-        lt = None
-        ls = None
-        
         xT, yT = _read_profile_xy(p, "TEMP", y_var="PRES", iprof=iprof)
         if xT is not None:
-            lt = axT.plot(xT, yT, color=c, linewidth=linewidth, alpha=alpha)[0]
             n_T += 1
+        else:
+            xT, yT = [], []
+        lt = axT.plot(xT, yT, color=c, linewidth=linewidth, alpha=alpha)[0]
         
         xS, yS = _read_profile_xy(p, "PSAL", y_var="PRES", iprof=iprof)
         if xS is not None:
-            ls = axS.plot(xS, yS, color=c, linewidth=linewidth, alpha=alpha)[0]
             n_S += 1
+        else:
+            xS, yS = [], []
+        ls = axS.plot(xS, yS, color=c, linewidth=linewidth, alpha=alpha)[0]
         
         lines_temp.append(lt)
         lines_psal.append(ls)
@@ -221,28 +212,83 @@ def make_temp_psal_cloud_figure(
     return fig, (axT, axS), cbar, lines_temp, lines_psal
 
 def enable_profile_navigation(
-    fig, axT, axS, rfiles, lines_temp, lines_psal,
+    fig, axT, axS, rfiles, lines_temp, lines_psal, cbar,
     base_alpha=0.25, base_lw=0.7,
-    sel_alpha=1.0, sel_lw=2.4
+    sel_alpha=1.0, sel_lw=2.4, iprof=0
 ):
     """
-    Adds up/down key navigation. Selected profile is drawn thicker & opaque.
-    Keeps same color as original line.
+    Up/down selects a cycle; P cycles through available profile indices.
+    Space toggles all indices in the selected file; F toggles only this index.
+    Flagged profiles are red; selection controls thickness and opacity.
     """
 
     n = len(rfiles)
-    state = {"i": 0}
+    indices, profile_counts = available_profile_indices(rfiles)
+    if iprof not in indices:
+        raise ValueError(f"Profile index {iprof} is unavailable; choose from {indices}")
+    # Flags are keyed by source filename and profile index, not screen position.
+    # They remain in memory until instruction saving is added.
+    state = {"i": 0, "iprof": iprof, "flagged": set()}
+    base_colors = [line.get_color() for line in lines_temp]
+    dates = np.array([_read_juld(path, iprof=iprof) for path in rfiles])
+    # Reuse already plotted data, and cache other indices after their first visit.
+    cache = {iprof: (dates, [(lt.get_data(), ls.get_data())
+                            for lt, ls in zip(lines_temp, lines_psal)])}
+    date_title = fig.suptitle("")
+
+    def _refresh_cloud():
+        nonlocal dates, base_colors
+        index = state["iprof"]
+        if index not in cache:
+            profile_data = []
+            for path, count in zip(rfiles, profile_counts):
+                if index < count:
+                    pairs = [_read_profile_xy(path, name, iprof=index)
+                             for name in ("TEMP", "PSAL")]
+                    profile_data.append([(x, y) if x is not None else ([], [])
+                                         for x, y in pairs])
+                else:
+                    profile_data.append([([], []), ([], [])])
+            cache[index] = (
+                np.array([_read_juld(path, iprof=index) for path in rfiles]),
+                profile_data,
+            )
+        dates, profile_data = cache[index]
+        times, norm, use_dates, ticks, labels = prepare_time_norm_and_labels(dates)
+        cbar.mappable.set_norm(norm)
+        base_colors = [cbar.mappable.to_rgba(time) for time in times]
+        for lt, ls, pairs, time in zip(lines_temp, lines_psal, profile_data, times):
+            for line, (x, y) in zip((lt, ls), pairs):
+                line.set_data(x, y)
+                line.set_color(cbar.mappable.to_rgba(time))
+        if use_dates:
+            cbar.set_ticks(ticks)
+            cbar.set_ticklabels(labels)
+            cbar.set_label("Profile time (JULD → date)")
+        else:
+            order_ticks = np.unique(np.linspace(times.min(), times.max(), min(n, 6)).astype(int))
+            cbar.set_ticks(order_ticks)
+            cbar.set_ticklabels([str(time) for time in order_ticks])
+            cbar.set_label("Profile order (JULD missing)")
+        for ax in (axT, axS):
+            ax.relim()
+            ax.autoscale(enable=True)
+            ax.yaxis.set_inverted(True)
 
     def _apply_styles():
         i = state["i"]
 
-        # reset all
-        for lt, ls in zip(lines_temp, lines_psal):
+        # Restore time colours when unflagged; red overrides colour only.
+        for position, (lt, ls) in enumerate(zip(lines_temp, lines_psal)):
+            key = (Path(rfiles[position]).name, state["iprof"])
+            color = "#ff0000" if key in state["flagged"] else base_colors[position]
             if lt is not None:
+                lt.set_color(color)
                 lt.set_alpha(base_alpha)
                 lt.set_linewidth(base_lw)
                 lt.set_zorder(1)
             if ls is not None:
+                ls.set_color(color)
                 ls.set_alpha(base_alpha)
                 ls.set_linewidth(base_lw)
                 ls.set_zorder(1)
@@ -259,6 +305,20 @@ def enable_profile_navigation(
             ls.set_linewidth(sel_lw)
             ls.set_zorder(5)
 
+        index = state["iprof"]
+        date = (_juld_to_datetime(dates[i]).strftime("%Y-%m-%d %H:%M UTC")
+                if np.isfinite(dates[i]) else "Date unavailable")
+        availability = " — unavailable in this cycle" if index >= profile_counts[i] else ""
+        key = (Path(rfiles[i]).name, index)
+        status = "FLAGGED BAD" if key in state["flagged"] else "Unflagged"
+        if availability:
+            status = "Unavailable"
+        date_title.set_text(
+            f"Selected profile date: {date}\n"
+            f"Profile index {index} of {indices}{availability} | {status} "
+            f"| Total flagged: {len(state['flagged'])}\n"
+            "Space: flag/unflag all indices | F: this index only | P: change index | ↑/↓: cycle"
+        )
         cyc = _cycle_from_filename(rfiles[i])
         axT.set_title(f"TEMP cloud (R-files) — selected #{i+1}/{n} (cycle {cyc})")
         axS.set_title(f"PSAL cloud (R-files) — selected #{i+1}/{n} (cycle {cyc})")
@@ -272,7 +332,36 @@ def enable_profile_navigation(
         elif event.key in ("up", "k"):
             state["i"] = (state["i"] + 1) % n
             _apply_styles()
+        elif event.key in ("p", "P") and len(indices) > 1:
+            position = indices.index(state["iprof"])
+            state["iprof"] = indices[(position + 1) % len(indices)]
+            _refresh_cloud()
+            _apply_styles()
+        elif event.key in (" ", "space", "f", "F"):
+            count = profile_counts[state["i"]]
+            if state["iprof"] < count:
+                source = Path(rfiles[state["i"]]).name
+                current = (source, state["iprof"])
+                # Space makes every index match the displayed index's NEW state,
+                # even when the indices previously had different flags.
+                flag_bad = current not in state["flagged"]
+                targets = range(count) if event.key in (" ", "space") else [state["iprof"]]
+                for index in targets:
+                    key = (source, index)
+                    if flag_bad:
+                        state["flagged"].add(key)
+                    else:
+                        state["flagged"].discard(key)
+                _apply_styles()
 
+    def _standard_keys(event):
+        if event.key not in ("p", "P", " ", "space", "f", "F"):
+            key_press_handler(event)
+
+    manager = fig.canvas.manager
+    if manager is not None:
+        fig.canvas.mpl_disconnect(manager.key_press_handler_id)
+        manager.key_press_handler_id = fig.canvas.mpl_connect("key_press_event", _standard_keys)
     fig.canvas.mpl_connect("key_press_event", _on_key)
     _apply_styles()
     return state  # returned so GUI can read current selection later
@@ -285,7 +374,7 @@ def main():
         "float_dir",
         nargs="?",
         type=str,
-        default=r"C:\Data\ARGO_Dataa\DMQCprocessing\6903708\\",
+        default=r"/mnt/c/Data/ARGO_Dataa/DMQCprocessing/6903708/",
         help="Path to float directory (contains R/)",
     )
     ap.add_argument("--iprof", type=int, default=0, help="Profile index inside each file (default: 0)")
@@ -295,21 +384,23 @@ def main():
 
     float_dir = Path(args.float_dir)
     r_dir = float_dir / "R"
-    rfiles = sorted(glob.glob(str(r_dir / "R*.nc")))
+    rfiles = sorted(r_dir.glob("R*.nc"))
 
     if not rfiles:
         raise SystemExit(f"No R-files found in: {r_dir}")
 
-    # colormap used both for lines and the shared colorbar
-    cmap_psal = LinearSegmentedColormap.from_list("psal_orange_green", ["orange", "green"])
+    indices, _ = available_profile_indices(rfiles)
+    if args.iprof not in indices:
+        ap.error(f"Profile index {args.iprof} is unavailable; choose from {indices}")
 
     fig, (axT, axS), cbar, lines_temp, lines_psal = make_temp_psal_cloud_figure(
         rfiles=rfiles,
         iprof=args.iprof,
-        cmap_lines=cmap_psal,
     )
-    
-    enable_profile_navigation(fig, axT, axS, rfiles, lines_temp, lines_psal)
+
+    enable_profile_navigation(
+        fig, axT, axS, rfiles, lines_temp, lines_psal, cbar, iprof=args.iprof,
+    )
 
     if args.save:
         outdir = Path(args.save)
@@ -317,6 +408,7 @@ def main():
         outpath = outdir / "cloud_TEMP_PSAL_R_only.png"
         fig.savefig(outpath, dpi=args.dpi, bbox_inches="tight")
         print(f"Saved: {outpath}")
+        plt.close(fig)
     else:
         plt.show()
 
