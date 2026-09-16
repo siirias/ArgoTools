@@ -7,6 +7,8 @@ how files, profiles, and provenance are identified.
 """
 from dataclasses import asdict, dataclass
 import hashlib
+import os
+import tempfile
 from pathlib import Path
 
 import yaml
@@ -37,6 +39,7 @@ class Instruction:
     origin: str
     flag: str | None = None
     source_sha256: str | None = None
+    metadata: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -45,8 +48,12 @@ class Decision:
     source_sha256: str
     suggestions: tuple
 
+    @property
+    def rejected(self):
+        return any(item.action == 'flag' for item in self.suggestions)
+
     def as_dict(self):
-        return asdict(self)
+        return {**asdict(self), 'outcome': 'reject' if self.rejected else 'retain'}
 
 
 def sha256(path):
@@ -84,10 +91,17 @@ def _text(value, field):
 
 def parse_document(document, origin):
     """Strict provisional adapter: unsupported actions/selections fail closed."""
-    _keys(document, ('schema_version', 'checker', 'instructions'), origin)
+    _keys(document, ('schema_version', 'checker', 'instructions', 'metadata'), origin)
     if type(document.get('schema_version')) is not int or document['schema_version'] != 1:
         raise ValueError(f'{origin}: expected schema_version: 1')
     checker = _text(document.get('checker'), 'checker')
+    metadata = document.get('metadata')
+    if metadata is not None and not isinstance(metadata, dict):
+        raise ValueError(f'{origin}: metadata must be a mapping')
+    if metadata is not None:
+        _keys(metadata, ('checker_version', 'operator', 'created_utc'), origin)
+        for field, value in metadata.items():
+            _text(value, f'metadata.{field}')
     entries = document.get('instructions')
     if not isinstance(entries, list):
         raise ValueError(f'{origin}: instructions must be a list')
@@ -119,43 +133,25 @@ def parse_document(document, origin):
                 raise ValueError(f'{origin}: no_finding must not set a QC flag')
         else:
             raise ValueError(f'{origin}: unsupported action {action!r}')
-        reason = _text(entry.get('reason'), 'reason')
+        reason = entry.get('reason', '')
+        if not isinstance(reason, str):
+            raise ValueError(f'{origin}: reason must be text when supplied')
+        reason = reason.strip()
         checksum = entry.get('source_sha256')
         if checksum is not None:
             if not isinstance(checksum, str) or len(checksum) != 64 or any(c not in '0123456789abcdef' for c in checksum):
                 raise ValueError(f'{origin}: invalid source_sha256')
-        result.append(Instruction(Target(source, index), action, checker, reason, str(origin), flag, checksum))
+        result.append(Instruction(Target(source, index), action, checker, reason, str(origin), flag, checksum, metadata))
     return result
 
 
-def load_instructions(directory, r_dir, float_id, cycles=None, legacy_dir=None):
-    """Read partner files recursively, plus the existing cycles/NNN.yaml format.
-
-    Legacy flag 1 means no finding, never an instruction to upgrade QC.
-    Legacy files address profile 0. New files must name their profile explicitly.
-    """
+def load_instructions(directory, r_dir, float_id, cycles=None):
+    """Read checker YAML reports recursively from the instructions directory."""
     result = []
     directory = Path(directory)
     if directory.exists():
         for path in sorted(set(directory.rglob('*.yaml')) | set(directory.rglob('*.yml'))):
             result.extend(parse_document(read_yaml(path), path))
-    if legacy_dir is not None and Path(legacy_dir).exists():
-        for path in sorted(Path(legacy_dir).glob('*.yaml')):
-            entry = read_yaml(path)
-            _keys(entry, ('cycle', 'qc_flag', 'note'), path)
-            cycle_text = str(entry.get('cycle', ''))
-            # A trailing D represents a descending cycle in legacy filenames.
-            source = f'R{float_id}_{cycle_text.zfill(3)}.nc'
-            _, cycle = file_identity(source)
-            if cycles is not None and cycle not in cycles:
-                continue
-            flag = str(entry.get('qc_flag', ''))
-            if flag not in ('1', '4'):
-                raise ValueError(f'{path}: legacy adapter supports only flags 1 and 4')
-            reason = entry.get('note') or ('Legacy good decision; no QC upgrade' if flag == '1' else '')
-            result.append(Instruction(Target(source, 0), 'flag' if flag == '4' else 'no_finding',
-                                      'legacy_cycle', _text(reason, f'{path}: note'), str(path),
-                                      '4' if flag == '4' else None))
     selected = []
     for item in result:
         source_float, cycle = file_identity(item.target.source)
@@ -168,3 +164,44 @@ def load_instructions(directory, r_dir, float_id, cycles=None, legacy_dir=None):
     return selected
 
 
+def write_instructions(path, checker, instructions, metadata=None):
+    """Validate and atomically replace one checker's complete YAML report.
+
+    Instructions are plain dictionaries in the documented interchange format.
+    An empty list clears previous suggestions. Optional metadata, reasons,
+    status and source hashes are not needed for a minimal checker.
+    """
+    path = Path(path)
+    document = {'schema_version': 1, 'checker': checker, 'instructions': list(instructions)}
+    if metadata is not None:
+        document['metadata'] = metadata
+    parse_document(document, path)
+    content = yaml.safe_dump(document, sort_keys=False, allow_unicode=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(dir=path.parent, prefix='.' + path.name, suffix='.tmp')
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as stream:
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+    return path
+
+
+def write_profile_flags(path, flagged, checker='visual_inspector', source_hashes=None,
+                        reason=None, metadata=None):
+    """Write (source filename, zero-based profile index) pairs as bad flags."""
+    entries = []
+    for source, index in sorted(set(flagged)):
+        entry = {
+            'target': {'source': source, 'profile_index': index, 'selection': 'whole_profile'},
+            'action': 'flag', 'flag': '4',
+        }
+        if reason is not None:
+            entry['reason'] = reason
+        if source_hashes is not None:
+            entry['source_sha256'] = source_hashes[source]
+        entries.append(entry)
+    return write_instructions(path, checker, entries, metadata)

@@ -1,7 +1,6 @@
 """Isolated tests for instruction merging and NetCDF output; no network needed."""
 import contextlib
 import io
-import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -15,7 +14,7 @@ import dmqc_process as cli
 from dmqc.download import download_r_files
 from dmqc.combine import combine_instructions
 from dmqc.instructions import (load_instructions,
-                               parse_document, sha256)
+                               parse_document, sha256, write_instructions, write_profile_flags, read_yaml)
 from dmqc.writer import put_text, text, write_d_files
 
 
@@ -105,29 +104,36 @@ class WorkflowTests(unittest.TestCase):
         bad, good = document(), document('no_finding', checker='other')
         for docs in ((bad, good), (good, bad)):
             decisions = self.decisions(*docs)
-            self.assertEqual(len(decisions), 1)
+            self.assertEqual(len(decisions), 2)
+            self.assertEqual(sum(d.rejected for d in decisions), 1)
             self.assertEqual(len(decisions[0].suggestions), 2)
-        self.assertEqual(self.decisions(good), [])
+        self.assertFalse(any(d.rejected for d in self.decisions(good)))
 
-    def test_writer_masks_adjusted_values_preserves_raw_and_other_profile(self):
+    def test_writer_masks_rejections_and_preserves_raw_and_other_profile_qc(self):
         original_hash = sha256(self.source)
         reports = write_d_files(self.decisions(), self.r_dir, self.d_dir)
         self.assertEqual(sha256(self.source), original_hash)
         output = self.d_dir / ('D' + NAME[1:])
         with Dataset(output) as ds:
-            self.assertEqual(ds['DATA_MODE'][:].tolist(), [b'D', b'A'])
+            self.assertEqual(ds['DATA_MODE'][:].tolist(), [b'D', b'D'])
             np.testing.assert_array_equal(ds['TEMP_ADJUSTED_QC'][0], [b'4', b'4', b'4', b'9'])
             self.assertEqual(ds['TEMP_ADJUSTED'][0].count(), 0)
             self.assertEqual(ds['TEMP_ADJUSTED_ERROR'][0].count(), 0)
-            self.assertEqual(ds['TEMP_ADJUSTED'][1].count(), 3)
+            self.assertEqual(ds['TEMP_ADJUSTED'][1].count(), 2)
+            np.testing.assert_array_equal(ds['TEMP_ADJUSTED_QC'][1], [b'1', b'3', b'4', b'9'])
             self.assertEqual(ds['PROFILE_TEMP_QC'][0], b'F')
             self.assertEqual(len(ds.dimensions['N_CALIB']), 2)
-            self.assertEqual(len(ds.dimensions['N_HISTORY']), 4)
+            self.assertEqual(len(ds.dimensions['N_HISTORY']), 7)
             self.assertEqual(text(ds['HISTORY_STEP'][1, 0]), 'ARSQ')
             self.assertEqual(text(ds['SCIENTIFIC_CALIB_EQUATION'][0, 0, 1]), 'original')
             self.assertIn('test_checker', text(ds['SCIENTIFIC_CALIB_COMMENT'][0, 1, 1]))
             self.assertEqual(text(ds['DATE_UPDATE'][:])[:2], '20')
-        audit = json.loads(output.with_suffix('.report.json').read_text())
+        report_path = self.d_dir.parent / 'reports' / output.with_suffix('.report.yaml').name
+        audit = yaml.safe_load(report_path.read_text())
+        self.assertEqual(reports[0]['report'], str(report_path))
+        self.assertEqual(list(self.d_dir.glob('*.report.*')), [])
+        with Dataset(output) as ds:
+            self.assertEqual(text(ds['HISTORY_REFERENCE'][1, 0]), '../reports/' + report_path.name)
         self.assertEqual(audit['source_sha256'], original_hash)
         self.assertEqual(audit['output_sha256'], sha256(output))
         self.assertEqual(reports[0]['changes'][0]['bad_samples'], 3)
@@ -136,7 +142,7 @@ class WorkflowTests(unittest.TestCase):
         make_source(self.source, adjusted=False)
         write_d_files(self.decisions(document(index=1)), self.r_dir, self.d_dir)
         with Dataset(self.d_dir / ('D' + NAME[1:])) as ds:
-            self.assertEqual(ds['DATA_MODE'][:].tolist(), [b'A', b'D'])
+            self.assertEqual(ds['DATA_MODE'][:].tolist(), [b'D', b'D'])
             np.testing.assert_array_equal(ds['PSAL_ADJUSTED_QC'][1], [b'4', b'4', b'4', b'9'])
 
     def test_both_profiles_share_one_output_and_fixed_dimensions_grow(self):
@@ -147,10 +153,13 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(ds['DATA_MODE'][:].tolist(), [b'D', b'D'])
             self.assertEqual(len(ds.dimensions['N_HISTORY']), 7)
 
-    def test_dry_run_and_no_finding_write_nothing(self):
+    def test_dry_run_writes_nothing_and_no_finding_still_produces_output(self):
         write_d_files(self.decisions(), self.r_dir, self.d_dir, dry_run=True)
-        write_d_files(self.decisions(document('no_finding')), self.r_dir, self.d_dir)
         self.assertFalse(self.d_dir.exists())
+        self.assertFalse((self.d_dir.parent / 'reports').exists())
+        reports = write_d_files(self.decisions(document('no_finding')), self.r_dir, self.d_dir)
+        self.assertEqual(len(reports), 1)
+        self.assertTrue(all(c['outcome'] == 'retain' for c in reports[0]['changes']))
 
     def test_stale_source_and_invalid_profile_are_rejected(self):
         decisions = self.decisions()
@@ -194,16 +203,24 @@ class WorkflowTests(unittest.TestCase):
                 write_d_files(self.decisions(), self.r_dir, self.d_dir)
         self.assertEqual(list(self.d_dir.iterdir()), [])
 
-    def test_legacy_good_is_no_finding_bad_requires_reason(self):
-        legacy = self.r_dir.parent / 'cycles'
-        legacy.mkdir()
-        path = legacy / '001.yaml'
-        path.write_text("cycle: '001'\nqc_flag: '1'\nnote: ''\n")
-        loaded = load_instructions(self.root / 'instructions', self.r_dir, '6903708', legacy_dir=legacy)
-        self.assertEqual(combine_instructions(loaded, self.r_dir), [])
-        path.write_text("cycle: '001'\nqc_flag: '4'\nnote: 'Bad cast'\n")
-        loaded = load_instructions(self.root / 'instructions', self.r_dir, '6903708', legacy_dir=legacy)
-        self.assertEqual(len(combine_instructions(loaded, self.r_dir)), 1)
+    def test_cycle_directory_does_not_contribute_instructions(self):
+        cycles = self.r_dir.parent / 'cycles'
+        cycles.mkdir()
+        (cycles / '001.yaml').write_text("cycle: '001'\nqc_flag: '4'\nnote: 'Old decision'\n")
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(cli.main(['write', '--work-dir', str(self.root)]), 0)
+        with Dataset(self.d_dir / ('D' + NAME[1:])) as ds:
+            np.testing.assert_array_equal(ds['TEMP_ADJUSTED_QC'][0], [b'1', b'3', b'4', b'9'])
+
+    def test_combine_stdout_is_readable_yaml(self):
+        stream = io.StringIO()
+        with contextlib.redirect_stdout(stream), contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(cli.main(['combine', '--work-dir', str(self.root)]), 0)
+        plan = yaml.safe_load(stream.getvalue())
+        self.assertEqual(plan['float_id'], '6903708')
+        self.assertEqual(plan['file_count'], 1)
+        self.assertEqual(plan['profile_count'], 2)
+        self.assertEqual(plan['decisions'][0]['target']['source'], NAME)
 
     def test_cli_defaults_preserve_current_float_and_all_stage(self):
         args = cli.parser().parse_args([])
@@ -223,6 +240,83 @@ class WorkflowTests(unittest.TestCase):
             self.assertFalse(self.d_dir.exists())
             self.assertEqual(cli.main(['write', '--work-dir', str(self.root)]), 0)
         self.assertTrue((self.d_dir / ('D' + NAME[1:])).is_file())
+
+    def test_all_files_are_written_and_good_values_and_errors_are_retained(self):
+        other = self.r_dir / 'R6903708_002.nc'
+        make_source(other)
+        with Dataset(other, 'r+') as ds:
+            ds['CYCLE_NUMBER'][:] = [2, 2]
+            for p in ('PRES', 'TEMP', 'PSAL'):
+                ds[p + '_ADJUSTED_QC'][:] = np.array([[b'1', b'1', b'1', b'9']] * 2)
+                ds[p + '_ADJUSTED_ERROR'][:, :3] = 0.02
+        decisions = self.decisions()
+        self.assertEqual(len(decisions), 4)
+        reports = write_d_files(decisions, self.r_dir, self.d_dir)
+        self.assertEqual(len(reports), 2)
+        with Dataset(other) as src, Dataset(self.d_dir / 'D6903708_002.nc') as ds:
+            for p in ('PRES', 'TEMP', 'PSAL'):
+                for suffix in ('_ADJUSTED', '_ADJUSTED_QC', '_ADJUSTED_ERROR'):
+                    np.testing.assert_array_equal(ds[p + suffix][:], src[p + suffix][:])
+            self.assertEqual(ds['DATA_MODE'][:].tolist(), [b'D', b'D'])
+            self.assertEqual(text(ds['SCIENTIFIC_CALIB_EQUATION'][0, 1, 0]), 'original')
+
+    def test_empty_rejection_list_exports_raw_only_good_data_without_inventing_errors(self):
+        make_source(self.source, adjusted=False)
+        decisions = combine_instructions([], self.r_dir)
+        self.assertEqual(len(decisions), 2)
+        reports = write_d_files(decisions, self.r_dir, self.d_dir)
+        with Dataset(self.d_dir / ('D' + NAME[1:])) as ds:
+            np.testing.assert_array_equal(ds['TEMP_ADJUSTED_QC'][0], [b'1', b'3', b'4', b'9'])
+            np.testing.assert_array_equal(ds['TEMP_ADJUSTED'][0, :2], [1, 2])
+            self.assertTrue(ds['TEMP_ADJUSTED'][0, 2:].mask.all())
+            self.assertEqual(ds['TEMP_ADJUSTED_ERROR'][:].count(), 0)
+        self.assertGreater(sum(c['samples_without_uncertainty'] for c in reports[0]['changes']), 0)
+
+    def test_removing_rejection_restores_source_data_on_overwrite(self):
+        write_d_files(self.decisions(), self.r_dir, self.d_dir)
+        write_d_files(combine_instructions([], self.r_dir), self.r_dir, self.d_dir, overwrite=True)
+        with Dataset(self.d_dir / ('D' + NAME[1:])) as ds:
+            self.assertEqual(float(ds['TEMP_ADJUSTED'][0, 0]), 1.)
+            self.assertEqual(ds['TEMP_ADJUSTED_QC'][0, 0], b'1')
+
+    def test_minimal_yaml_without_optional_fields(self):
+        doc = document()
+        del doc['instructions'][0]['reason']
+        output = self.root / 'minimal.yaml'
+        write_instructions(output, doc['checker'], doc['instructions'])
+        loaded = parse_document(read_yaml(output), output)
+        self.assertEqual(loaded[0].reason, '')
+        self.assertIsNone(loaded[0].source_sha256)
+        self.assertEqual(len(combine_instructions(loaded, self.r_dir)), 2)
+
+    def test_saved_profile_flags_are_consumable_by_dfile_writer(self):
+        folder = self.root / 'instructions'
+        output = folder / 'visual_inspector.yaml'
+        hashes = {NAME: sha256(self.source)}
+        write_profile_flags(output, {(NAME, 0), (NAME, 1)}, source_hashes=hashes,
+                            metadata={'operator': 'test'})
+        loaded = load_instructions(folder, self.r_dir, '6903708')
+        self.assertEqual(loaded[0].metadata, {'operator': 'test'})
+        reports = write_d_files(combine_instructions(loaded, self.r_dir), self.r_dir, self.d_dir)
+        self.assertEqual(len(reports), 1)
+        with Dataset(self.d_dir / ('D' + NAME[1:])) as ds:
+            self.assertEqual(ds['DATA_MODE'][:].tolist(), [b'D', b'D'])
+
+    def test_yaml_replacement_is_atomic_and_empty_clears_own_report(self):
+        folder = self.root / 'instructions'
+        output = folder / 'visual_inspector.yaml'
+        write_profile_flags(output, {(NAME, 0)})
+        previous = output.read_bytes()
+        partner = folder / 'partner.yaml'
+        partner.write_bytes(previous)
+        with patch('dmqc.instructions.os.replace', side_effect=OSError('disk error')):
+            with self.assertRaises(OSError):
+                write_profile_flags(output, set())
+        self.assertEqual(output.read_bytes(), previous)
+        self.assertEqual(sorted(p.name for p in folder.iterdir()), ['partner.yaml', 'visual_inspector.yaml'])
+        write_profile_flags(output, set())
+        self.assertEqual(read_yaml(output)['instructions'], [])
+        self.assertEqual(partner.read_bytes(), previous)
 
     def test_download_is_atomic_and_skips_existing_sources(self):
         payload = self.source.read_bytes()

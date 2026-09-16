@@ -5,7 +5,7 @@ Use --help for individual stages. Scientific checkers run separately.
 """
 import argparse
 from dataclasses import asdict
-import json
+import yaml
 import os
 from pathlib import Path
 import sys
@@ -71,19 +71,21 @@ def run(args):
     instruction_dir = args.instructions_dir or float_dir / 'instructions'
     if args.instructions_dir is not None and not instruction_dir.is_dir():
         raise ValueError(f'Instructions directory does not exist: {instruction_dir}')
-    instructions = load_instructions(instruction_dir, r_dir, args.float_id, args.cycles,
-                                     legacy_dir=float_dir / 'cycles')
-    decisions = combine_instructions(instructions, r_dir)
+    instructions = load_instructions(instruction_dir, r_dir, args.float_id, args.cycles)
+    decisions = combine_instructions(instructions, r_dir, args.float_id, args.cycles)
+    rejected_count = sum(d.rejected for d in decisions)
+    file_count = len({d.target.source for d in decisions})
     summary = {'float_id': args.float_id, 'instruction_count': len(instructions),
-               'bad_profile_count': len(decisions), 'decisions': [d.as_dict() for d in decisions],
+               'file_count': file_count, 'profile_count': len(decisions), 'bad_profile_count': rejected_count, 'decisions': [d.as_dict() for d in decisions],
                'no_findings': [asdict(i) for i in instructions if i.action == 'no_finding']}
-    print(f'{len(instructions)} checker reports; {len(decisions)} rejected profiles', file=log)
+    print(f'{len(instructions)} checker reports; {file_count} files / {len(decisions)} profiles; '
+          f'{rejected_count} rejected, {len(decisions) - rejected_count} retained', file=log)
     if args.stage == 'combine':
         # A reviewable plan on stdout, without mixing generated plans into checker inputs.
-        print(json.dumps(summary, indent=2, ensure_ascii=False))
+        print(yaml.safe_dump(summary, sort_keys=False, allow_unicode=True), end='')
         return summary
     if not decisions:
-        print(f'No bad-profile instructions; no D-files written. Add checker YAMLs in {instruction_dir}')
+        print(f'No R-files match the selected float/cycles in {r_dir}')
         return []
     meta = dict(DEFAULT_META)
     meta_path = float_dir / 'meta.yaml'
@@ -99,9 +101,15 @@ def run(args):
         print(f"{report['status']}: {report['output']}")
         if args.dry_run:
             for decision in report['decisions']:
-                print(f"  profile {decision['target']['profile_index']}: PRES/TEMP/PSAL -> bad (4)")
+                outcome = 'bad (4)' if decision['outcome'] == 'reject' else 'retain data and existing QC'
+                print(f"  profile {decision['target']['profile_index']}: PRES/TEMP/PSAL -> {outcome}")
                 for suggestion in decision['suggestions']:
                     print(f"    {suggestion['checker']}: {suggestion['reason']}")
+    missing_errors = sum(change['samples_without_uncertainty']
+                         for report in reports for change in report.get('changes', []))
+    if missing_errors:
+        print(f'{missing_errors} retained parameter samples have no uncertainty estimate; '
+              'existing missing errors were preserved.')
     return reports
 
 

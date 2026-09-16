@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.colors import LinearSegmentedColormap, Normalize
@@ -9,6 +9,7 @@ from matplotlib.cm import ScalarMappable
 import numpy as np
 import matplotlib.pyplot as plt
 from netCDF4 import Dataset
+from dmqc.instructions import parse_document, read_yaml, sha256, write_profile_flags
 ARGO_JULD_REF = datetime(1950, 1, 1)
 
 def _get_profile_1d(var, iprof=0):
@@ -214,12 +215,13 @@ def make_temp_psal_cloud_figure(
 def enable_profile_navigation(
     fig, axT, axS, rfiles, lines_temp, lines_psal, cbar,
     base_alpha=0.25, base_lw=0.7,
-    sel_alpha=1.0, sel_lw=2.4, iprof=0
+    sel_alpha=1.0, sel_lw=2.4, iprof=0, instructions_path=None, source_hashes=None
 ):
     """
     Up/down selects a cycle; P cycles through available profile indices.
     Space toggles all indices in the selected file; F toggles only this index.
-    Flagged profiles are red; selection controls thickness and opacity.
+    Flagged profiles are red; Enter saves instructions without closing.
+    Q saves and quits. Saved flags are restored when opening the inspector.
     """
 
     n = len(rfiles)
@@ -227,8 +229,33 @@ def enable_profile_navigation(
     if iprof not in indices:
         raise ValueError(f"Profile index {iprof} is unavailable; choose from {indices}")
     # Flags are keyed by source filename and profile index, not screen position.
-    # They remain in memory until instruction saving is added.
     state = {"i": 0, "iprof": iprof, "flagged": set()}
+    instructions_path = Path(instructions_path) if instructions_path is not None else (
+        Path(rfiles[0]).parent.parent / "instructions" / "visual_inspector.yaml"
+    )
+    paths = {Path(path).name: Path(path) for path in rfiles}
+    source_hashes = (dict(source_hashes) if source_hashes is not None
+                     else {name: sha256(path) for name, path in paths.items()})
+    counts_by_source = dict(zip(paths, profile_counts))
+    for name, path in paths.items():
+        if source_hashes.get(name) != sha256(path):
+            raise ValueError(f"Source changed while loading: {name}; reopen the inspector")
+    if instructions_path.exists():
+        document = read_yaml(instructions_path)
+        if document.get("checker") != "visual_inspector":
+            raise ValueError(f"{instructions_path}: belongs to another checker")
+        for instruction in parse_document(document, instructions_path):
+            target = instruction.target
+            if instruction.action != "flag":
+                raise ValueError("Inspector report must contain only bad-profile flags")
+            if target.source not in paths or target.profile_index >= counts_by_source[target.source]:
+                raise ValueError(f"Saved target is unavailable: {target.source}, index {target.profile_index}")
+            if instruction.source_sha256 is not None and instruction.source_sha256 != source_hashes[target.source]:
+                raise ValueError(f"Saved source changed: {target.source}; review the saved report before continuing")
+            state["flagged"].add((target.source, target.profile_index))
+    saved_flags = set(state["flagged"])
+    save_message = (f"Loaded {len(saved_flags)} saved flags" if instructions_path.exists()
+                    else "No instructions saved yet")
     base_colors = [line.get_color() for line in lines_temp]
     dates = np.array([_read_juld(path, iprof=iprof) for path in rfiles])
     # Reuse already plotted data, and cache other indices after their first visit.
@@ -243,6 +270,8 @@ def enable_profile_navigation(
             profile_data = []
             for path, count in zip(rfiles, profile_counts):
                 if index < count:
+                    if sha256(path) != source_hashes[Path(path).name]:
+                        raise ValueError(f"Source changed: {Path(path).name}; reopen the inspector")
                     pairs = [_read_profile_xy(path, name, iprof=index)
                              for name in ("TEMP", "PSAL")]
                     profile_data.append([(x, y) if x is not None else ([], [])
@@ -317,16 +346,45 @@ def enable_profile_navigation(
             f"Selected profile date: {date}\n"
             f"Profile index {index} of {indices}{availability} | {status} "
             f"| Total flagged: {len(state['flagged'])}\n"
-            "Space: flag/unflag all indices | F: this index only | P: change index | ↑/↓: cycle"
+            "Space: all indices | F: this index | P: change index | ↑/↓: cycle | Enter: save | Q: save & quit"
         )
+        dirty = " — unsaved changes" if state["flagged"] != saved_flags else ""
+        fig.supxlabel(f"{save_message}{dirty}", fontsize=9)
         cyc = _cycle_from_filename(rfiles[i])
         axT.set_title(f"TEMP cloud (R-files) — selected #{i+1}/{n} (cycle {cyc})")
         axS.set_title(f"PSAL cloud (R-files) — selected #{i+1}/{n} (cycle {cyc})")
 
         fig.canvas.draw_idle()
 
+    def _save_flags():
+        nonlocal saved_flags, save_message
+        try:
+            for name in {source for source, _ in state["flagged"]}:
+                if sha256(paths[name]) != source_hashes[name]:
+                    raise ValueError(f"Source changed: {name}; reopen the inspector")
+            write_profile_flags(
+                instructions_path, state["flagged"], source_hashes=source_hashes,
+                reason="Whole profile rejected during visual inspection.",
+                metadata={"created_utc": datetime.now(timezone.utc).isoformat()},
+            )
+        except (OSError, ValueError) as exc:
+            save_message = f"Save failed: {exc}"
+            print(save_message)
+            _apply_styles()
+            return False
+        saved_flags = set(state["flagged"])
+        save_message = f"Saved {len(saved_flags)} flags to {instructions_path}"
+        print(save_message)
+        _apply_styles()
+        return True
+
     def _on_key(event):
-        if event.key in ("down", "j"):
+        if event.key in ("enter", "return"):
+            _save_flags()
+        elif event.key in ("q", "Q"):
+            if _save_flags():
+                plt.close(fig)
+        elif event.key in ("down", "j"):
             state["i"] = (state["i"] - 1) % n
             _apply_styles()
         elif event.key in ("up", "k"):
@@ -355,7 +413,7 @@ def enable_profile_navigation(
                 _apply_styles()
 
     def _standard_keys(event):
-        if event.key not in ("p", "P", " ", "space", "f", "F"):
+        if event.key not in ("p", "P", " ", "space", "f", "F", "enter", "return", "q", "Q"):
             key_press_handler(event)
 
     manager = fig.canvas.manager
@@ -379,6 +437,7 @@ def main():
     )
     ap.add_argument("--iprof", type=int, default=0, help="Profile index inside each file (default: 0)")
     ap.add_argument("--save", type=str, default="", help="Output directory for PNGs (if empty: show interactively)")
+    ap.add_argument("--instructions", type=Path, help="Inspector YAML path (default: <float>/instructions/visual_inspector.yaml)")
     ap.add_argument("--dpi", type=int, default=180, help="PNG DPI if saving")
     args = ap.parse_args()
 
@@ -393,6 +452,8 @@ def main():
     if args.iprof not in indices:
         ap.error(f"Profile index {args.iprof} is unavailable; choose from {indices}")
 
+    # Pin source versions before loading the plotted observations.
+    source_hashes = {path.name: sha256(path) for path in rfiles}
     fig, (axT, axS), cbar, lines_temp, lines_psal = make_temp_psal_cloud_figure(
         rfiles=rfiles,
         iprof=args.iprof,
@@ -400,6 +461,8 @@ def main():
 
     enable_profile_navigation(
         fig, axT, axS, rfiles, lines_temp, lines_psal, cbar, iprof=args.iprof,
+        instructions_path=args.instructions or float_dir / "instructions" / "visual_inspector.yaml",
+        source_hashes=source_hashes,
     )
 
     if args.save:
