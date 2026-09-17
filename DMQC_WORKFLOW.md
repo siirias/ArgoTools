@@ -419,3 +419,51 @@ generator rewrites them in compact form. Per-date/per-depth selectors remain
 future extensions. `all_profiles` currently supports only `set_uncertainty`,
 with a nonempty `values` mapping and a float identifier; source/profile selectors
 and source hashes cannot be mixed into this float-wide target.
+
+
+## Automatic regional surface-salinity check
+
+```bash
+python check_surface_salinity.py --dry-run
+python check_surface_salinity.py
+python check_surface_salinity.py /path/to/6903698 --config config/surface_salinity.yaml
+```
+
+No arguments selects the usual test float 6903708. The supplied
+`config/surface_salinity.yaml` defines each area independently using a name,
+latitude range, longitude range, and maximum surface salinity. Both ranges are
+required. There is no shared bounding box or inherited range.
+
+Each rectangle includes its lower boundaries and excludes its upper boundaries
+(`minimum <= coordinate < maximum`). This avoids overlapping tests at shared
+edges. Positions outside every rectangle are reported as not evaluated. For
+intentionally overlapping areas, all matching rules apply; exceeding any
+threshold rejects. The rectangles are not coastline masks.
+
+The initial surface definition is median raw PSAL over raw PRES 0–5 dbar
+(including both pressure endpoints), requiring at least two samples. These
+settings are editable, not derived from the MATLAB threshold-selection code.
+`statistic` accepts `median` or `maximum`. QC filters reproduce the selection
+in the supplied MATLAB plotting example: PRES_QC 1 and PSAL_QC 1 or 4. They are
+explicit lists of quoted codes in YAML. Fill values and NaN/Inf are excluded.
+The check does not use adjusted fields. Salinity limits use the native PSAL
+practical-salinity units; pressure ranges are in dbar.
+
+Each profile index is evaluated independently. A statistic strictly greater
+than the regional limit emits the existing whole-profile core rejection;
+equality passes. Missing/invalid positions, no matching area, and insufficient
+eligible surface samples are reported as `not_evaluated`, never as passes.
+A malformed source or invalid configuration aborts the run before saving.
+
+Normal runs replace this checker's `instructions/surface_salinity.yaml` and
+write `reports/surface_salinity.yaml`. Other checker files remain unchanged.
+The instruction reasons identify the failed area, statistic, limit, sample
+count and pressure range. Instructions pin source hashes. The report includes
+every profile, skipped-evaluation reasons, all matched tests, source hashes,
+and a snapshot of the configuration. The two output files are each replaced
+atomically, but publication is not a transaction across both files.
+
+`--dry-run` prints counts without saving. Exit code 0 means the checker completed
+(including scientific rejections); 2 means an input or processing failure. Run
+`dmqc_process.py write --overwrite` separately to apply the generated rejections.
+Run `python -m unittest test_surface_salinity -v` for focused tests.
