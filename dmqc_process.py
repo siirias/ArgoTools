@@ -1,12 +1,11 @@
 """Argo DMQC workflow: download sources, combine checker reports, write D-files.
 
-Run without arguments for float 6903708 in the historical work directory.
+Run without arguments to use config/local.yaml.
 Use --help for individual stages. Scientific checkers run separately.
 """
 import argparse
 from dataclasses import asdict
 import yaml
-import os
 from pathlib import Path
 import sys
 
@@ -14,11 +13,7 @@ from dmqc.download import download_r_files
 from dmqc.combine import combine_instructions
 from dmqc.instructions import load_instructions, read_yaml
 from dmqc.writer import DEFAULT_META, write_d_files
-
-
-DEFAULT_FLOAT = '6903708'
-DEFAULT_WORK_DIR = Path(r'C:\Data\ARGO_Dataa\DMQCprocessing' if os.name == 'nt'
-                        else '/mnt/c/Data/ARGO_Dataa/DMQCprocessing')
+from dmqc.settings import add_settings_argument, processing_defaults
 
 
 def parse_cycles(value):
@@ -45,9 +40,10 @@ def parser():
     result = argparse.ArgumentParser(description=__doc__)
     result.add_argument('stage', nargs='?', default='all', choices=('download', 'combine', 'write', 'all'),
                         help='Default: download then combine/write available decisions')
-    result.add_argument('--float', dest='float_id', default=DEFAULT_FLOAT)
-    result.add_argument('--work-dir', type=Path, default=DEFAULT_WORK_DIR,
-                        help='Parent of the float directory (default: %(default)s)')
+    add_settings_argument(result)
+    result.add_argument('--float', dest='float_id', help='Float identifier (default: local settings)')
+    result.add_argument('--work-dir', type=Path,
+                        help='Parent of the float directory (default: local settings)')
     result.add_argument('--dac', default='coriolis')
     result.add_argument('--cycles', type=parse_cycles, help='Subset, e.g. 1,3-5')
     result.add_argument('--instructions-dir', type=Path,
@@ -116,6 +112,7 @@ def run(args):
 def main(argv=None):
     args = parser().parse_args(argv)
     try:
+        args.work_dir, args.float_id = processing_defaults(args.work_dir, args.float_id, args.settings)
         run(args)
     except (ValueError, OSError, KeyError) as exc:
         print(f'DMQC error: {exc}', file=sys.stderr)

@@ -7,3 +7,6 @@ build/
 dist/
 float_track_map.html
 float_track_with_eez.html
+
+# Personal DMQC paths and default float
+/config/local.yaml

@@ -13,6 +13,7 @@ from netCDF4 import Dataset
 from dmqc.instructions import (parse_document, read_yaml, sha256, write_instructions,
                                load_instructions, Target, Instruction, Decision)
 from dmqc.download import file_identity
+from dmqc.settings import add_settings_argument, float_directory
 ARGO_JULD_REF = datetime(1950, 1, 1)
 
 def _get_profile_1d(var, iprof=0):
@@ -557,23 +558,26 @@ def enable_profile_navigation(
 
 
 
-def main():
+def main(argv=None):
     ap = argparse.ArgumentParser(description="DMQC cloud plot: TEMP/PSAL vs PRES (R-files only)")
+    add_settings_argument(ap)
     ap.add_argument(
         "float_dir",
         nargs="?",
-        type=str,
-        default=r"/mnt/c/Data/ARGO_Dataa/DMQCprocessing/6903708/",
-        help="Path to float directory (contains R/)",
+        type=Path,
+        help="Path to float directory containing R/ (default: local settings)",
     )
     ap.add_argument("--iprof", type=int, default=0, help="Profile index inside each file (default: 0)")
     ap.add_argument("--save", type=str, default="", help="Output directory for PNGs (if empty: show interactively)")
     ap.add_argument("--instructions", type=Path, help="Inspector YAML path (default: <float>/instructions/visual_inspector.yaml)")
     ap.add_argument("--instructions-dir", type=Path, help="Directory containing other checker instructions")
     ap.add_argument("--dpi", type=int, default=180, help="PNG DPI if saving")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
-    float_dir = Path(args.float_dir)
+    try:
+        float_dir = float_directory(args.float_dir, args.settings)
+    except (ValueError, OSError) as exc:
+        ap.error(str(exc))
     r_dir = float_dir / "R"
     rfiles = sorted(r_dir.glob("R*.nc"))
 

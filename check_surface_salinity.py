@@ -3,7 +3,7 @@ import argparse
 from pathlib import Path
 import sys
 
-from dmqc_process import DEFAULT_FLOAT, DEFAULT_WORK_DIR
+from dmqc.settings import add_settings_argument, float_directory
 from dmqc.surface_salinity import load_config, check_directory, save_instructions
 from verify_dfiles import save_report
 
@@ -12,12 +12,14 @@ DEFAULT_CONFIG = Path(__file__).resolve().parent / 'config' / 'surface_salinity.
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('directory', nargs='?', type=Path, default=DEFAULT_WORK_DIR / DEFAULT_FLOAT,
-                        help='Float folder or R folder (default: %(default)s)')
+    add_settings_argument(parser)
+    parser.add_argument('directory', nargs='?', type=Path,
+                        help='Float folder or R folder (default: local settings)')
     parser.add_argument('--config', type=Path, default=DEFAULT_CONFIG)
     parser.add_argument('--dry-run', action='store_true', help='Report counts without saving files')
     args = parser.parse_args(argv)
     try:
+        args.directory = float_directory(args.directory, args.settings)
         config = load_config(args.config)
         r_dir, entries, report = check_directory(args.directory, config)
         report['configuration_path'] = str(args.config.resolve())

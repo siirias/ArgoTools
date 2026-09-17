@@ -88,6 +88,11 @@ class WorkflowTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
+        settings_path = self.root / 'local.yaml'
+        settings_path.write_text(yaml.safe_dump({'work_directory': str(self.root), 'default_float': '6903708'}))
+        settings_patch = patch('dmqc.settings.LOCAL_SETTINGS', settings_path)
+        settings_patch.start()
+        self.addCleanup(settings_patch.stop)
         self.r_dir = self.root / '6903708' / 'R'
         self.r_dir.mkdir(parents=True)
         self.source = self.r_dir / NAME
@@ -224,9 +229,13 @@ class WorkflowTests(unittest.TestCase):
 
     def test_cli_defaults_preserve_current_float_and_all_stage(self):
         args = cli.parser().parse_args([])
-        self.assertEqual(args.float_id, '6903708')
+        self.assertIsNone(args.float_id)
         self.assertEqual(args.stage, 'all')
-        self.assertEqual(args.work_dir, cli.DEFAULT_WORK_DIR)
+        self.assertIsNone(args.work_dir)
+        with patch('dmqc_process.run') as run:
+            self.assertEqual(cli.main([]), 0)
+        self.assertEqual(run.call_args.args[0].float_id, '6903708')
+        self.assertEqual(run.call_args.args[0].work_dir, self.root)
         with patch('dmqc_process.download_r_files') as download, contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(cli.main(['--work-dir', str(self.root)]), 0)
             self.assertEqual(download.call_args.args[0], '6903708')

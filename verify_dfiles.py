@@ -1,6 +1,6 @@
 """Inspect core Argo D-files and save a YAML inventory and validation report.
 
-Accepts a float directory or its D/ directory. With no arguments, checks 6903708.
+Accepts a float directory or its D/ directory. With no arguments, uses config/local.yaml.
 Files are opened read-only. This implements a documented subset of Argo rules;
 it does not replace the official GDAC format checker or scientific review.
 """
@@ -13,10 +13,7 @@ import tempfile
 import yaml
 
 from dmqc.verification import verify_directory
-
-
-DEFAULT_DIRECTORY = Path(r'C:\Data\ARGO_Dataa\DMQCprocessing\6903708' if os.name == 'nt'
-                         else '/mnt/c/Data/ARGO_Dataa/DMQCprocessing/6903708')
+from dmqc.settings import add_settings_argument, float_directory
 
 
 def save_report(report, output):
@@ -39,8 +36,9 @@ def save_report(report, output):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('directory', nargs='?', type=Path, default=DEFAULT_DIRECTORY,
-                        help='Float folder or D folder (default: %(default)s)')
+    add_settings_argument(parser)
+    parser.add_argument('directory', nargs='?', type=Path,
+                        help='Float folder or D folder (default: local settings)')
     output = parser.add_mutually_exclusive_group()
     output.add_argument('--output', type=Path, help='Report path; default: reports/verification.yaml')
     output.add_argument('--no-save', action='store_true', help='Print results without writing a report')
@@ -48,6 +46,7 @@ def main(argv=None):
     parser.add_argument('--strict', action='store_true', help='Return failure for warnings too')
     args = parser.parse_args(argv)
     try:
+        args.directory = float_directory(args.directory, args.settings)
         report = verify_directory(args.directory)
         for result in report['files']:
             parameters = sorted({p for profile in result['profiles'] for p in profile.get('station_parameters', [])})

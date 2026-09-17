@@ -15,10 +15,41 @@ not run checks, upgrade all values to good, or calculate corrections.
 python dmqc_process.py
 ```
 
-No arguments retains float **6903708** and the historical directory:
+All active DMQC tools share `config/local.yaml` for their working directory and
+default float. On a new checkout, copy `config/local.example.yaml` to
+`config/local.yaml` and edit the two settings:
 
-- Windows: `C:\Data\ARGO_Dataa\DMQCprocessing`
-- WSL/Linux default: `/mnt/c/Data/ARGO_Dataa/DMQCprocessing`
+```yaml
+# Parent directory containing the individual float folders.
+work_directory: '/mnt/c/Data/ARGO_Dataa/DMQCprocessing'
+default_float: '6903708'
+```
+
+YAML supports comments starting with `#`. The example file includes Windows,
+Linux and WSL paths. Windows accepts `'C:/Data/ARGO_Dataa/DMQCprocessing'` or a
+single-quoted backslash path. Linux uses paths such as `'/home/name/argo'`; WSL
+uses `'/mnt/c/...'` for files on Windows C:. Use the path style of the Python
+environment running the script. Windows paths are rejected under Linux/WSL to
+avoid accidentally creating directories literally named `C:\...`.
+
+`~` expands to the current user's home. Relative **configured** paths resolve
+against the settings file's directory. Relative **command-line** paths retain
+their normal meaning relative to the shell's current directory. The default
+settings file is found beside the scripts, regardless of the shell directory.
+
+`local.yaml` is ignored by Git; only the example is shared with partners. Your
+current local settings retain the existing test float and work directory. All
+five tools (`dmqc_process.py`, `dmqc_inspector.py`, `assign_uncertainties.py`,
+`check_surface_salinity.py`, `verify_dfiles.py`) also accept
+`--settings /path/to/another.yaml`. This is separate from the salinity checker's
+`--config`, which specifies scientific thresholds.
+
+Explicit float/R/D directory arguments override the defaults. For the processor,
+`--float` and `--work-dir` independently override their configured counterparts.
+If both are supplied, no settings file is needed. Other tools likewise need no
+settings when their directory is supplied. `--help` works without local settings;
+running without required defaults gives a short setup message. Settings are
+read on each invocation, never fixed when a module is imported.
 
 The default `all` stage downloads missing R-files, reads available instructions,
 and writes one D-file for every selected R-file, including those without rejection
@@ -50,6 +81,7 @@ source hashes, validates them, and writes outputs in the same invocation.
 
 ## Components
 
+- `dmqc/settings.py`: shared local path/float defaults and command-line overrides.
 - `dmqc/download.py`: download sources atomically without overwriting them.
 - `dmqc/instructions.py`: internal target/operation objects and provisional YAML adapters.
 - `dmqc/combine.py`: merge suggestions, with bad winning over no finding.
@@ -319,7 +351,7 @@ python verify_dfiles.py /path/to/6903708
 python verify_dfiles.py /path/to/6903708/D --verbose --no-save
 ```
 
-With no arguments, checks float 6903708 in the usual processing directory.
+With no arguments, uses the work directory and float from local settings.
 Accepts either the float directory or its `D/` directory and scans all `D*.nc`
 files there. It opens NetCDFs read-only and continues if a file is unreadable.
 
@@ -366,7 +398,7 @@ python assign_uncertainties.py /path/to/6903708
 python assign_uncertainties.py /path/to/6903708 --inspect
 ```
 
-The default selects float 6903708, as in the processing script. This simple
+The default uses local settings, as in the processing script. This simple
 instruction generator asks for one positive uncertainty per core parameter:
 PRES in decibar, TEMP in degrees Celsius, and PSAL in psu. It applies that
 constant to every cycle and profile index; it does not infer sensor accuracy,
@@ -462,7 +494,7 @@ python check_surface_salinity.py
 python check_surface_salinity.py /path/to/6903698 --config config/surface_salinity.yaml
 ```
 
-No arguments selects the usual test float 6903708. The supplied
+No arguments uses the float from local settings. The supplied
 `config/surface_salinity.yaml` defines each area independently using a name,
 latitude range, longitude range, and maximum surface salinity. Both ranges are
 required. There is no shared bounding box or inherited range.
