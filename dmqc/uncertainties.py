@@ -5,6 +5,7 @@ import numpy as np
 from netCDF4 import Dataset
 
 from .download import file_identity
+from .profiles import core_parameters
 from .instructions import CORE_PARAMETERS, sha256, uncertainty_value, write_instructions
 
 UNITS = {'PRES': 'decibar', 'TEMP': 'degree_Celsius', 'PSAL': 'psu'}
@@ -20,19 +21,24 @@ def inspect_sources(directory):
     floats = {file_identity(path.name)[0] for path in paths}
     if len(floats) != 1:
         raise ValueError('Select R-files from exactly one float')
-    stats = {p: {'count': 0, 'minimum': None, 'maximum': None, 'units': UNITS[p]} for p in CORE_PARAMETERS}
+    stats = {p: {'count': 0, 'minimum': None, 'maximum': None, 'units': UNITS[p], 'profiles': 0} for p in CORE_PARAMETERS}
     sources = []
     for path in paths:
         checksum = sha256(path)
         with Dataset(path) as ds:
             count = len(ds.dimensions['N_PROF'])
+            active = [core_parameters(ds, ip) for ip in range(count)]
             for p in CORE_PARAMETERS:
+                indices = [ip for ip, names in enumerate(active) if p in names]
+                if not indices:
+                    continue
+                stats[p]['profiles'] += len(indices)
                 var = ds[p + '_ADJUSTED_ERROR']
                 units = getattr(var, 'units', None)
                 if units != UNITS[p]:
                     raise ValueError(f'{path.name}: {var.name} units must be {UNITS[p]!r}, got {units!r}')
-                values = np.ma.masked_invalid(var[:])
-                flags = np.ma.filled(ds[p + '_ADJUSTED_QC'][:], b' ')
+                values = np.ma.masked_invalid(var[indices, :])
+                flags = np.ma.filled(ds[p + '_ADJUSTED_QC'][indices, :], b' ')
                 values = np.ma.masked_where(~np.isin(flags, [b'1', b'2', b'3', b'5', b'8']), values).compressed()
                 values = values[values > 0]
                 if values.size:
@@ -48,7 +54,7 @@ def inspect_sources(directory):
         # Float32 storage adds insignificant digits; display a useful suggested value.
         stat['default'] = (float(format(stat['minimum'], '.7g'))
                            if stat['minimum'] is not None and stat['minimum'] == stat['maximum'] else None)
-    return r_dir, sources, stats
+    return r_dir, sources, {p: stat for p, stat in stats.items() if stat['profiles']}
 
 
 def write_defaults(path, sources, values, reasons=None):

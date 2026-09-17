@@ -8,6 +8,7 @@ import numpy as np
 from netCDF4 import Dataset
 
 from .download import file_identity
+from .profiles import profile_parameters
 from .instructions import read_yaml, sha256, write_instructions
 
 
@@ -92,9 +93,7 @@ def check_directory(directory, config):
         checksum = sha256(path)
         with Dataset(path) as ds:
             ds.set_auto_chartostring(False)
-            for name, dims in {'LATITUDE': ('N_PROF',), 'LONGITUDE': ('N_PROF',),
-                               'PRES': ('N_PROF', 'N_LEVELS'), 'PSAL': ('N_PROF', 'N_LEVELS'),
-                               'PRES_QC': ('N_PROF', 'N_LEVELS'), 'PSAL_QC': ('N_PROF', 'N_LEVELS')}.items():
+            for name, dims in {'LATITUDE': ('N_PROF',), 'LONGITUDE': ('N_PROF',)}.items():
                 if name not in ds.variables or ds[name].dimensions != dims:
                     raise ValueError(f'{path.name}: missing or unsupported {name}')
             for ip in range(len(ds.dimensions['N_PROF'])):
@@ -102,6 +101,14 @@ def check_directory(directory, config):
                 result = {'source': path.name, 'profile_index': ip, 'latitude': lat,
                           'longitude': lon, 'status': 'not_evaluated'}
                 results.append(result)
+                parameters = profile_parameters(ds, ip)
+                result['parameters'] = list(parameters)
+                if 'PRES' not in parameters or 'PSAL' not in parameters:
+                    result['reason'] = 'parameter_not_available'
+                    continue
+                for name in ('PRES', 'PSAL', 'PRES_QC', 'PSAL_QC'):
+                    if name not in ds.variables or ds[name].dimensions != ('N_PROF', 'N_LEVELS'):
+                        raise ValueError(f'{path.name} profile {ip}: missing or unsupported {name}')
                 if lat is None or lon is None or not -90 <= lat <= 90 or not -180 <= lon <= 180:
                     result['reason'] = 'missing_or_invalid_position'
                     continue

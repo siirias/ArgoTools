@@ -249,7 +249,7 @@ the filename, `PLATFORM_NUMBER`, and `CYCLE_NUMBER`. Targeting another profile
 requires another instruction. Both ascending and descending filenames must be
 specified exactly, avoiding ambiguity from a cycle number alone.
 
-Each whole-profile instruction covers `PRES`, `TEMP`, and `PSAL`. An optional
+Each whole-profile instruction covers the declared members of `PRES`, `TEMP`, and `PSAL`. An optional
 `parameters: [PRES, TEMP, PSAL]` explicitly states the same scope. Other parameter
 sets, depth selections, flags, and correction actions are rejected for now.
 
@@ -558,3 +558,38 @@ Uncertainty assignments retain their existing float-default/profile-override
 resolution; nonzero priority on those assignments is rejected for now.
 
 Tests: `python -m unittest test_priorities test_dmqc_inspector -v`.
+
+
+## Profiles with different parameter inventories
+
+`STATION_PARAMETERS` is read separately for every profile index using
+`dmqc/profiles.py`. A profile can contain only PRES (and auxiliary fields such
+as MTIME), even when another profile in the same file contains PRES/TEMP/PSAL.
+The meaning of an index is not assumed to be constant across cycles.
+
+- The salinity checker reports `parameter_not_available` when a profile does not
+  declare both PRES and PSAL. It emits no rejection for that profile. A declared
+  but missing/malformed variable is still an error. Lack of sufficient eligible
+  samples for a declared parameter remains `insufficient_surface_samples`.
+- The writer applies whole-profile decisions to the supported core parameters
+  actually declared. It retains pressure-only profiles, updates their pressure
+  values/QC/uncertainties/calibration/history, and leaves absent parameter slices
+  and auxiliary data unchanged. Duplicate inventories and data for undeclared
+  core parameters are rejected. Profiles with no supported core parameters are
+  outside this writer's scope and stop processing with a clear error.
+- Float-wide uncertainty defaults expand only onto present parameters. An
+  explicit profile uncertainty targeting an absent parameter is an error, so
+  a mistaken profile index is not silently ignored. The uncertainty generator
+  inspects only declared parameter slices and prompts only for parameters found.
+- Verification checks declared parameters without requiring absent TEMP/PSAL
+  fields to be populated. It still detects undeclared measurements and missing
+  declared variables. Wholly empty calibration slots inherited from R-files do
+  not count as calibration records; partially filled records are checked, and
+  each declared core parameter still requires a populated calibration record.
+  Auxiliary/noncore parameters are inventoried with a coverage warning, because
+  their scientific content/calibration is outside this core verifier's scope.
+
+Absent fields retain their original fill values and blank flags; the writer
+never fabricates salinity or temperature for a pressure-only profile. Source
+hashes and per-parameter changes remain in the audit reports. Regression tests:
+`python -m unittest test_partial_profiles -v`.

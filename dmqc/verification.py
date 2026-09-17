@@ -12,6 +12,8 @@ import re
 import numpy as np
 from netCDF4 import Dataset
 
+from .profiles import profile_parameters
+
 
 SOURCES = {
     'user_manual': 'https://cdn.ioos.noaa.gov/media/2020/03/argo_user_manual_v3.3a.pdf',
@@ -156,6 +158,14 @@ class FileCheck:
                 self.issue('NULL_CHARACTER', 'Character variables must use spaces, not NULL padding', name,
                            mask=values == b'')
         expected = dict(SCHEMA)
+        try:
+            declared = {p for ip in range(len(ds.dimensions['N_PROF'])) for p in profile_parameters(ds, ip)}
+        except (ValueError, KeyError):
+            declared = set(CORE)  # Invalid inventory is reported by schema/profile checks.
+        for p in set(CORE) - declared:
+            for name in (p, p + '_QC', p + '_ADJUSTED', p + '_ADJUSTED_QC', p + '_ADJUSTED_ERROR', 'PROFILE_' + p + '_QC'):
+                if name not in ds.variables:
+                    expected.pop(name, None)
         if 'PARAMETER_DATA_MODE' in ds.variables:
             expected['PARAMETER_DATA_MODE'] = ('S1', ('N_PROF', 'N_PARAM'))
         for name, (dtype, dims) in expected.items():
@@ -252,16 +262,15 @@ class FileCheck:
         mode = _text(a['DATA_MODE'][ip]) if 'DATA_MODE' in self.good_schema else '?'
         info = {'profile_index': ip, 'data_mode': mode, 'parameters': {}}
         parameter_modes = {}
+        names = []
         if 'VERTICAL_SAMPLING_SCHEME' in self.good_schema:
             info['sampling_scheme'] = _text(a['VERTICAL_SAMPLING_SCHEME'][ip])
         if 'STATION_PARAMETERS' in self.good_schema:
-            names = [_text(v) for v in a['STATION_PARAMETERS'][ip] if _text(v)]
+            try:
+                names = list(profile_parameters(self.ds, ip))
+            except ValueError as exc:
+                self.issue('STATION_PARAMETER', str(exc), 'STATION_PARAMETERS', ip)
             info['station_parameters'] = names
-            if len(names) != len(set(names)):
-                self.issue('DUPLICATE_PARAMETER', 'Duplicate STATION_PARAMETERS entries', 'STATION_PARAMETERS', ip)
-            for p in CORE:
-                if p not in names:
-                    self.issue('STATION_PARAMETER', f'{p} missing from STATION_PARAMETERS', 'STATION_PARAMETERS', ip)
             extras = set(names) - set(CORE)
             if extras:
                 self.issue('EXTRA_PARAMETERS', f'Only PRES/TEMP/PSAL content checks implemented; extra parameters: {sorted(extras)}', severity='warning', profile=ip)
@@ -283,6 +292,12 @@ class FileCheck:
                 if expected is not None and mode != expected:
                     self.issue('MODE_CONSISTENCY', f'DATA_MODE {mode} disagrees with parameter modes', 'PARAMETER_DATA_MODE', ip)
         for p in CORE:
+            if p not in names:
+                for name in (p, p + '_ADJUSTED', p + '_ADJUSTED_ERROR'):
+                    if name in self.good_schema:
+                        _, present = self.numeric(name, ip)
+                        self.issue('UNDECLARED_PARAMETER_DATA', 'Parameter has data but is absent from STATION_PARAMETERS', name, ip, mask=present)
+                continue
             required = [p, p + '_QC', p + '_ADJUSTED', p + '_ADJUSTED_QC', p + '_ADJUSTED_ERROR', 'PROFILE_' + p + '_QC']
             if not all(name in self.good_schema for name in required):
                 continue
@@ -324,7 +339,7 @@ class FileCheck:
                 self.issue('PROFILE_QC', f'Profile QC should be {expected!r}', 'PROFILE_' + p + '_QC', ip)
         if mode == 'D':
             for p in ('TEMP', 'PSAL'):
-                if all(name in self.good_schema for name in ('PRES_ADJUSTED_QC', p + '_ADJUSTED_QC')):
+                if p in names and 'PRES' in names and all(name in self.good_schema for name in ('PRES_ADJUSTED_QC', p + '_ADJUSTED_QC')):
                     bad_pressure = a['PRES_ADJUSTED_QC'][ip] == b'4'
                     usable = np.isin(a[p + '_ADJUSTED_QC'][ip], [b'1', b'2', b'3', b'5', b'8'])
                     self.issue('PRESSURE_QC_DEPENDENCY', 'Bad pressure cannot accompany usable T/S', p + '_ADJUSTED_QC', ip, mask=bad_pressure & usable)
@@ -338,7 +353,12 @@ class FileCheck:
             for record, row in enumerate(a['PARAMETER'][ip]):
                 for slot, value in enumerate(row):
                     p = _text(value)
-                    if not p:
+                    if p not in CORE:
+                        continue
+                    fields = ['SCIENTIFIC_CALIB_' + field for field in ('EQUATION', 'COEFFICIENT', 'COMMENT', 'DATE')]
+                    # R-files may carry parameter names in unused calibration slots.
+                    # A wholly empty slot is not a calibration; a partly filled one is checked.
+                    if not any(_text(a[name][ip, record, slot]) for name in fields if name in self.good_schema):
                         continue
                     recorded.add(p)
                     for field in ('EQUATION', 'COEFFICIENT', 'COMMENT', 'DATE'):
@@ -353,7 +373,7 @@ class FileCheck:
             if 'STATION_PARAMETERS' in self.good_schema:
                 for cell in a['STATION_PARAMETERS'][ip]:
                     p = _text(cell)
-                    if p and p not in recorded:
+                    if p in CORE and p not in recorded:
                         self.issue('MISSING_CALIBRATION_PARAMETER', f'No calibration record for {p}', 'PARAMETER', ip)
         if 'HISTORY_DATE' in self.good_schema:
             populated = False

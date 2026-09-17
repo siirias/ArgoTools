@@ -1,7 +1,7 @@
 # Raw PRES/PSAL are used. Surface range is inclusive, in dbar.
 # Initial surface definition: review these settings for your application.
 surface:
-  pressure_range_dbar: [0, 8]
+  pressure_range_dbar: [0, 10]
   statistic: median
   minimum_samples: 1
   pressure_qc: ['1']

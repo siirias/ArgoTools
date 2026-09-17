@@ -61,7 +61,7 @@ def main(argv=None):
         values, reasons = {}, {}
         print('These values replace existing uncertainties on eligible samples across all profiles.')
         print('No scientific values are assumed. Blank accepts a suggestion, or skips if none; skip removes a saved choice.')
-        for p in CORE_PARAMETERS:
+        for p in stats:
             default = saved.get(p, stats[p]['default'])
             label = f' [{default:g}]' if default is not None else ''
             if default is not None:

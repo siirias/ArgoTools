@@ -3,6 +3,7 @@ from pathlib import Path
 from dataclasses import replace
 
 from .download import file_identity
+from .profiles import core_parameters
 from .instructions import CORE_PARAMETERS, Decision, Target, FloatTarget, sha256, uncertainty_value
 
 
@@ -18,6 +19,7 @@ def combine_instructions(instructions, r_dir, float_id=None, cycles=None):
     grouped = {}
     hashes = {}
     defaults = []
+    available = {}
     for item in instructions:
         if type(item.priority) is not int:
             raise ValueError("priority must be an integer")
@@ -55,6 +57,9 @@ def combine_instructions(instructions, r_dir, float_id=None, cycles=None):
             with Dataset(Path(r_dir) / target.source) as ds:
                 ds.set_auto_chartostring(False)
                 validate_target(ds, target)
+                available[target] = core_parameters(ds, target.profile_index)
+        if item.action == 'set_uncertainty' and any(p not in available[target] for p in item.target.parameters):
+            raise ValueError(f'{item.origin}: uncertainty targets an absent parameter in {target.source}, profile {target.profile_index}')
         grouped.setdefault(target, []).append(item)
     # Include every profile, even when the inspector's rejection list is empty.
     decisions = []
@@ -71,8 +76,10 @@ def combine_instructions(instructions, r_dir, float_id=None, cycles=None):
             for iprof in range(len(ds.dimensions['N_PROF'])):
                 target = Target(path.name, iprof)
                 validate_target(ds, target)
-                expanded = [replace(item, target=Target(path.name, iprof, item.target.parameters))
-                            for item in defaults if item.target.float_id == source_float]
+                active = core_parameters(ds, iprof)
+                expanded = [replace(item, target=Target(path.name, iprof, tuple(p for p in item.target.parameters if p in active)))
+                            for item in defaults if item.target.float_id == source_float
+                            and any(p in active for p in item.target.parameters)]
                 decision = Decision(target, hashes[path.name], tuple(expanded + grouped.get(target, [])))
                 for parameter in CORE_PARAMETERS:
                     decision.uncertainty(parameter)  # Conflicts stop before any output is written.

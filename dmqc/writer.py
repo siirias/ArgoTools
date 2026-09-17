@@ -14,6 +14,7 @@ import numpy as np
 from netCDF4 import Dataset
 
 from .download import file_identity
+from .profiles import core_parameters
 from .instructions import CORE_PARAMETERS, sha256, uncertainty_value
 
 
@@ -89,10 +90,15 @@ def validate_source(ds, decision):
         require(ds, 'PARAMETER_DATA_MODE', ('N_PROF',), char=True)
         if ds['PARAMETER_DATA_MODE'].dimensions != ('N_PROF', 'N_PARAM'):
             raise ValueError('PARAMETER_DATA_MODE must use N_PROF, N_PARAM')
-    names = [text(row) for row in ds['STATION_PARAMETERS'][target.profile_index]]
-    if any(names.count(p) != 1 for p in CORE_PARAMETERS):
-        raise ValueError('Each core parameter must appear once in STATION_PARAMETERS')
+    active = core_parameters(ds, target.profile_index)
+    if not active:
+        raise ValueError(f'{target.source} profile {target.profile_index}: no supported core parameters')
     for p in CORE_PARAMETERS:
+        if p not in active:
+            for suffix in ('', '_ADJUSTED', '_ADJUSTED_ERROR'):
+                if p + suffix in ds.variables and valid(ds[p + suffix], target.profile_index).any():
+                    raise ValueError(f'{target.source} profile {target.profile_index}: {p} data exist but are not declared')
+    for p in active:
         for suffix in ('', '_ADJUSTED', '_ADJUSTED_ERROR'):
             v = require(ds, p + suffix, ('N_PROF', 'N_LEVELS'))
             if not np.issubdtype(v.dtype, np.floating) or not hasattr(v, '_FillValue'):
@@ -104,7 +110,7 @@ def validate_source(ds, decision):
         require(ds, 'PROFILE_' + p + '_QC', (), char=True)
         if ds['PROFILE_' + p + '_QC'].dimensions != ('N_PROF',):
             raise ValueError(f'{p}: profile QC must use N_PROF')
-    for p in CORE_PARAMETERS:
+    for p in active:
         value = decision.uncertainty(p)
         if value is not None:
             var = ds[p + '_ADJUSTED_ERROR']
@@ -215,7 +221,7 @@ def _apply(ds, decisions, meta, history_start, calib_index, report_name):
         put_text(ds['DATA_STATE_INDICATOR'], ip, '2C')
         names = [text(row) for row in ds['STATION_PARAMETERS'][ip]]
         reasons = '; '.join(f'{s.checker}: {s.reason}' for s in decision.winning_suggestions if s.action == 'flag')
-        for p in CORE_PARAMETERS:
+        for p in core_parameters(ds, ip):
             previous = np.ma.filled(ds[p + '_ADJUSTED_QC'][ip], b' ')
             copied = 0
             if decision.rejected:
@@ -296,7 +302,7 @@ def validate_output(source, output, decisions):
             ip = decision.target.profile_index
             if dst['DATA_MODE'][ip] != b'D' or text(dst['DATA_STATE_INDICATOR'][ip]) != '2C':
                 raise ValueError('Output mode metadata validation failed')
-            for p in CORE_PARAMETERS:
+            for p in core_parameters(src, ip):
                 if decision.rejected:
                     expected = np.where(observed_samples(src, p, ip), b'4', b'9')
                     if valid(dst[p + '_ADJUSTED'], ip).any() or valid(dst[p + '_ADJUSTED_ERROR'], ip).any():
@@ -309,7 +315,8 @@ def validate_output(source, output, decisions):
                         np.testing.assert_array_equal(np.ma.filled(actual, np.nan), np.ma.filled(values, np.nan))
                 np.testing.assert_array_equal(dst[p + '_ADJUSTED_QC'][ip], expected)
                 np.testing.assert_array_equal(dst['PROFILE_' + p + '_QC'][ip], profile_qc(expected))
-        # Compare stored data, including fill values and existing metadata records.
+        active_by_profile = {ip: core_parameters(src, ip) for ip in profiles}
+        # Compare stored data, including absent parameters and existing metadata records.
         src.set_auto_maskandscale(False)
         dst.set_auto_maskandscale(False)
         for name, var in src.variables.items():
@@ -318,7 +325,10 @@ def validate_output(source, output, decisions):
             old = var[...]
             new = dst[name][tuple(slice(0, n) for n in var.shape)]
             if name in profile_edits:
-                untouched = [i for i in range(len(src.dimensions['N_PROF'])) if i not in profiles]
+                parameter = next((p for p in CORE_PARAMETERS if name in
+                                  (p + '_ADJUSTED', p + '_ADJUSTED_ERROR', p + '_ADJUSTED_QC', 'PROFILE_' + p + '_QC')), None)
+                untouched = [i for i in range(len(src.dimensions['N_PROF']))
+                             if i not in profiles or (parameter is not None and parameter not in active_by_profile[i])]
                 old, new = old[untouched], new[untouched]
             np.testing.assert_array_equal(old, new, err_msg=f'Unexpected change in {name}')
 
@@ -376,7 +386,9 @@ def write_d_files(decisions, r_dir, d_dir, meta=None, dry_run=False, overwrite=F
         for source, output, entries, history, calib in plan:
             report_path = reports_dir / output.with_suffix('.report.yaml').name
             temporary = Path(staging) / output.name
-            clone_expanded(source, temporary, len(entries) * len(CORE_PARAMETERS))
+            with Dataset(source) as src:
+                history_count = sum(len(core_parameters(src, d.target.profile_index)) for d in entries)
+            clone_expanded(source, temporary, history_count)
             with Dataset(temporary, 'r+') as ds:
                 ds.set_auto_chartostring(False)
                 changes = _apply(ds, entries, metadata, history, calib, f'../reports/{report_path.name}')
