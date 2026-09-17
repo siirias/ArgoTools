@@ -50,6 +50,7 @@ class Instruction:
     metadata: dict | None = None
     value: float | None = None
     scope: str = 'profile'
+    priority: int = 0
 
 
 @dataclass(frozen=True)
@@ -60,7 +61,13 @@ class Decision:
 
     @property
     def rejected(self):
-        return any(item.action == 'flag' for item in self.suggestions)
+        return any(item.action == 'flag' for item in self.winning_suggestions)
+
+    @property
+    def winning_suggestions(self):
+        choices = [s for s in self.suggestions if s.action in ('flag', 'accept')]
+        priority = max((s.priority for s in choices), default=None)
+        return tuple(s for s in choices if s.priority == priority)
 
     def uncertainty(self, parameter):
         by_scope = {}
@@ -75,6 +82,8 @@ class Decision:
 
     def as_dict(self):
         return {**asdict(self), 'outcome': 'reject' if self.rejected else 'retain',
+                'winning_priority': self.winning_suggestions[0].priority if self.winning_suggestions else None,
+                'winning_decisions': [asdict(s) for s in self.winning_suggestions],
                 'uncertainties': {p: self.uncertainty(p) for p in CORE_PARAMETERS
                                   if self.uncertainty(p) is not None}}
 
@@ -133,7 +142,7 @@ def parse_document(document, origin):
         if isinstance(entry, dict) and isinstance(entry.get('target'), dict) and entry['target'].get('selection') == 'all_profiles':
             result.extend(_parse_float_default(entry, checker, metadata, origin))
             continue
-        _keys(entry, ('target', 'action', 'flag', 'reason', 'status', 'source_sha256', 'value'), origin)
+        _keys(entry, ('target', 'action', 'flag', 'reason', 'status', 'source_sha256', 'value', 'priority'), origin)
         target = entry.get('target')
         _keys(target, ('source', 'profile_index', 'selection', 'parameters'), origin)
         source = _text(target.get('source'), 'target.source')
@@ -153,7 +162,12 @@ def parse_document(document, origin):
         status = entry.get('status', 'ready')
         if status != 'ready':
             raise ValueError(f'{origin}: decision is {status!r}; finish human review before writing')
+        priority = entry.get('priority', 0)
+        if type(priority) is not int:
+            raise ValueError(f'{origin}: priority must be an integer')
         action = entry.get('action')
+        if priority != 0 and action not in ('flag', 'accept', 'no_finding'):
+            raise ValueError(f'{origin}: priority currently applies only to accept/flag/no_finding')
         flag = entry.get('flag')
         value = entry.get('value')
         if action != 'set_uncertainty' and value is not None:
@@ -166,9 +180,9 @@ def parse_document(document, origin):
             if str(flag) != '4':
                 raise ValueError(f'{origin}: v1 only supports flag 4 (bad)')
             flag = '4'
-        elif action == 'no_finding':
+        elif action in ('no_finding', 'accept'):
             if flag is not None:
-                raise ValueError(f'{origin}: no_finding must not set a QC flag')
+                raise ValueError(f'{origin}: accept/no_finding must not set a QC flag')
         else:
             raise ValueError(f'{origin}: unsupported action {action!r}')
         reason = entry.get('reason', '')
@@ -179,7 +193,7 @@ def parse_document(document, origin):
         if checksum is not None:
             if not isinstance(checksum, str) or len(checksum) != 64 or any(c not in '0123456789abcdef' for c in checksum):
                 raise ValueError(f'{origin}: invalid source_sha256')
-        result.append(Instruction(Target(source, index, tuple(parameters)), action, checker, reason, str(origin), flag, checksum, metadata, value))
+        result.append(Instruction(Target(source, index, tuple(parameters)), action, checker, reason, str(origin), flag, checksum, metadata, value, priority=priority))
     return result
 
 
@@ -218,13 +232,15 @@ def uncertainty_value(value):
     return float(value)
 
 
-def load_instructions(directory, r_dir, float_id, cycles=None):
+def load_instructions(directory, r_dir, float_id, cycles=None, exclude_paths=()):
     """Read checker YAML reports recursively from the instructions directory."""
     result = []
     directory = Path(directory)
+    excluded = {Path(path).resolve() for path in exclude_paths}
     if directory.exists():
         for path in sorted(set(directory.rglob('*.yaml')) | set(directory.rglob('*.yml'))):
-            result.extend(parse_document(read_yaml(path), path))
+            if path.resolve() not in excluded:
+                result.extend(parse_document(read_yaml(path), path))
     selected = []
     for item in result:
         if isinstance(item.target, FloatTarget):

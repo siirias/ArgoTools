@@ -19,6 +19,8 @@ def combine_instructions(instructions, r_dir, float_id=None, cycles=None):
     hashes = {}
     defaults = []
     for item in instructions:
+        if type(item.priority) is not int:
+            raise ValueError("priority must be an integer")
         if isinstance(item.target, FloatTarget):
             if item.action != 'set_uncertainty' or item.scope != 'float':
                 raise ValueError('Unsupported float-wide operation')
@@ -36,7 +38,7 @@ def combine_instructions(instructions, r_dir, float_id=None, cycles=None):
             raise ValueError('Unsupported parameters')
         if item.target.selection != 'whole_profile' or item.target.sample_indices is not None or item.target.pressure_range is not None:
             raise ValueError('Only whole-profile core-parameter decisions are implemented')
-        if item.action not in ('flag', 'no_finding', 'set_uncertainty') or (item.action == 'flag' and item.flag != '4'):
+        if item.action not in ('flag', 'accept', 'no_finding', 'set_uncertainty') or (item.action == 'flag' and item.flag != '4'):
             raise ValueError('Unsupported instruction operation')
         source_float, cycle = file_identity(target.source)
         if float_id is not None and source_float != str(float_id):

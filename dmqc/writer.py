@@ -66,6 +66,8 @@ def validate_source(ds, decision):
     target = decision.target
     validate_target(ds, target)
     for suggestion in decision.suggestions:
+        if type(suggestion.priority) is not int:
+            raise ValueError("priority must be an integer")
         st = suggestion.target
         if (st.source != target.source or st.profile_index != target.profile_index or
                 st.selection != 'whole_profile' or st.sample_indices is not None or st.pressure_range is not None):
@@ -74,7 +76,7 @@ def validate_source(ds, decision):
             uncertainty_value(suggestion.value)
             if not st.parameters or any(p not in CORE_PARAMETERS for p in st.parameters) or suggestion.flag is not None:
                 raise ValueError('Unsupported uncertainty instruction')
-        elif (suggestion.action not in ('flag', 'no_finding') or st.parameters != CORE_PARAMETERS or
+        elif (suggestion.action not in ('flag', 'accept', 'no_finding') or st.parameters != CORE_PARAMETERS or
               (suggestion.action == 'flag' and suggestion.flag != '4')):
             raise ValueError('Decision contains unsupported instructions')
     require(ds, 'DATA_MODE', (), char=True)  # One character per profile.
@@ -212,7 +214,7 @@ def _apply(ds, decisions, meta, history_start, calib_index, report_name):
         ds['DATA_MODE'][ip] = b'D'
         put_text(ds['DATA_STATE_INDICATOR'], ip, '2C')
         names = [text(row) for row in ds['STATION_PARAMETERS'][ip]]
-        reasons = '; '.join(f'{s.checker}: {s.reason}' for s in decision.suggestions if s.action == 'flag')
+        reasons = '; '.join(f'{s.checker}: {s.reason}' for s in decision.winning_suggestions if s.action == 'flag')
         for p in CORE_PARAMETERS:
             previous = np.ma.filled(ds[p + '_ADJUSTED_QC'][ip], b' ')
             copied = 0
@@ -227,8 +229,11 @@ def _apply(ds, decisions, meta, history_start, calib_index, report_name):
                 adjusted, flags, errors, copied = retained_arrays(ds, p, ip, decision.uncertainty(p))
                 ds[p + '_ADJUSTED'][ip, :] = adjusted
                 ds[p + '_ADJUSTED_ERROR'][ip, :] = errors
-                comment = ('No rejection instruction. Existing adjustments and QC retained; '
+                comment = ('Profile retained by resolved instructions. Existing adjustments and QC retained; '
                            'raw data used where adjustments absent.')
+                accepted = [s for s in decision.winning_suggestions if s.action == 'accept']
+                if accepted:
+                    comment = f'Accepted at priority {accepted[0].priority}. ' + comment
                 estimate = decision.uncertainty(p)
                 if estimate is not None:
                     scope = 'profile' if any(s.action == 'set_uncertainty' and p in s.target.parameters

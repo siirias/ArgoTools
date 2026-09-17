@@ -90,20 +90,36 @@ python DMQC_inspector.py
 - **Enter** writes the instructions and keeps the figure open.
 - **Q** writes the instructions and closes the figure only if saving succeeds.
 
-The inspector saves to `<float>/instructions/visual_inspector.yaml`. Override
-that path with `--instructions /path/to/report.yaml`. Each flagged index gets
-one instruction. Saving replaces only this inspector's report; saving no flags
-writes `instructions: []`, removing its previous rejections. Other checkers'
-reports are untouched. Reopening restores saved flags, including indices not
-currently displayed. The figure shows save results and unsaved changes.
-Closing the window normally does not save: use Enter first, or Q to save and quit.
-`--save` still exports a PNG and is separate from instruction saving.
+- **r** clears the visual decision for this index; **Shift+R** clears the cycle.
 
-The inspector records source hashes from the start of inspection and rejects
-changed sources when loading saved flags or saving new ones. It also rejects
-saved targets that are unavailable in the opened set of files. Saving errors
-leave the window open and flags in memory. The inspector saves suggestions only;
-run `python dmqc_process.py write --dry-run` and then `write` to create D-files.
+The inspector loads other checker YAML files from `<float>/instructions/`
+(or `--instructions-dir`) and displays their combined accept/reject result.
+Rejected profiles are red; the selected profile shows checker names, priorities,
+and reasons. It also shows the current effective priority and any visual override.
+
+Space/F toggle the current effective outcome and create explicit `flag` or
+`accept` instructions at priority **100**. Merely viewing a profile does not
+create an acceptance. Clearing an override restores the outcome from the other
+instructions. A checker with priority above 100 can still defeat a visual
+acceptance; rejection wins ties at 100.
+
+The inspector saves only its own decisions to
+`<float>/instructions/visual_inspector.yaml` (`--instructions` overrides this
+path). Other checker reports remain untouched. Saving an empty override set
+clears its own file. Existing explicit priorities are preserved on reopening;
+old instructions without priority still mean 0 until changed with Space/F.
+Reopening restores saved acceptances as well as rejections, including indices
+not currently displayed. Put separate manual instructions in another file.
+Closing normally does not save: use Enter first, or Q to save and quit.
+`--save` exports a PNG and is separate from instruction saving.
+
+Source hashes guard the plotted observations and saved decisions. Changed
+source files or unavailable saved targets stop loading/saving. If another
+checker report is added, removed or edited while the inspector is open, saving
+asks you to reopen so the display reflects the new inputs. This check is for
+that inspection session; previously saved acceptances remain applicable to later
+checker results according to priority. Saving errors leave the window open and
+unsaved decisions in memory. Run `dmqc_process.py write` separately to apply them.
 
 ## Provisional instruction adapter
 
@@ -121,7 +137,7 @@ instructions:
     flag: '4'
 ```
 
-`reason`, `status`, and `source_sha256` are optional. An omitted reason becomes
+`reason`, `status`, `priority`, and `source_sha256` are optional. An omitted reason becomes
 empty text internally; omitted status means `ready`; omitted hash means the
 checker did not bind its suggestion to a specific source version. An explicit
 `status: pending` still blocks D-file processing.
@@ -193,8 +209,11 @@ sets, depth selections, flags, and correction actions are rejected for now.
 
 A checker that finds nothing wrong reports `action: no_finding`, omits `flag`,
 and may provide a reason. This is **not** a QC upgrade or approval of the profile.
-Bad wins independently of checker order; every contributing suggestion remains
-in the combined decision and audit report. Missing-data flags remain missing.
+The highest integer `priority` among `flag` and `accept` instructions wins;
+omitting it means 0. Rejection wins ties, independently of checker/file order.
+`no_finding` is neutral even with a higher priority. Every contributing suggestion
+remains in the combined decision and audit report, which also identifies the
+winning priority and decisions. Missing-data flags remain missing.
 The output plan also includes profiles without suggestions, with outcome `retain`.
 No-finding and absent rejection instructions preserve existing QC, including
 existing bad/questionable flags; they do not upgrade those flags to good.
@@ -467,3 +486,29 @@ atomically, but publication is not a transaction across both files.
 (including scientific rejections); 2 means an input or processing failure. Run
 `dmqc_process.py write --overwrite` separately to apply the generated rejections.
 Run `python -m unittest test_surface_salinity -v` for focused tests.
+
+
+### Explicit acceptance and priority
+
+```yaml
+schema_version: 1
+checker: visual_inspector
+instructions:
+  - target:
+      source: R6903708_120.nc
+      profile_index: 1
+      selection: whole_profile
+    action: accept
+    priority: 100
+    reason: "Expert reviewed the automatic rejection."
+```
+
+`accept` cancels lower-priority whole-profile rejection. It does not set all
+sample QC to 1; the writer retains source values and QC, including existing bad
+or questionable samples. `accept` must not include `flag`. Negative integer
+priorities are allowed; strings, booleans and fractional values are rejected.
+Priority belongs to an individual instruction, not a checker filename.
+Uncertainty assignments retain their existing float-default/profile-override
+resolution; nonzero priority on those assignments is rejected for now.
+
+Tests: `python -m unittest test_priorities test_dmqc_inspector -v`.
