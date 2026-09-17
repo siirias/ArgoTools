@@ -222,8 +222,9 @@ For every profile in each selected R-file:
 - Otherwise retain existing adjusted values and QC. Where adjusted values are
   absent and their QC is blank/unset, copy raw values and raw QC into the adjusted
   fields. Existing QC 3/4/9 is never upgraded. Values/errors with QC 4/9 are filled.
-- Preserve existing uncertainty estimates for retained values. Missing estimates
-  remain missing; newly copied raw values receive no invented estimate. Reports
+- Apply explicit uncertainty instructions when supplied; otherwise preserve
+  existing estimates for retained values. Missing estimates remain missing;
+  newly copied raw values receive no invented estimate. Reports
   count retained samples without uncertainties, and the CLI prints their total.
 - Recompute profile QC summaries and set delayed-mode metadata for all profiles.
 - Append scientific calibration and per-parameter history records using the actual
@@ -235,8 +236,8 @@ Use `write --overwrite` after changing the rejection list: outputs are always
 rebuilt from the original R-files, so removing a rejection restores the source
 values/QC instead of retaining the previous D-file's rejection.
 
-This is a flagging-only export workflow. In particular, absent uncertainty
-estimates still need to be supplied by a later checker before the outputs can
+This workflow flags data and applies supplied uncertainty estimates. Missing
+estimates need to be supplied by an instruction generator before the outputs can
 serve as fully assessed delayed-mode data. Creating a D-file does not estimate
 sensor drift or certify its uncertainty.
 
@@ -262,7 +263,7 @@ local structural checks, not the complete GDAC submission validator.
 
 Keep operation and target separate. The target model reserves distinct sample
 indices and pressure-range selectors. Later operations can carry corrected
-adjusted values or uncertainties. They must be explicitly implemented and
+adjusted values or per-sample uncertainties. They must be explicitly implemented and
 validated; this version will not silently accept them. Corrections need conflict
 rules distinct from the current bad/no-finding merge policy. The final YAML
 schema, required-checker list, and review workflow can be agreed with partners.
@@ -276,3 +277,145 @@ python -m unittest test_dmqc test_dmqc_inspector -v
 Tests use synthetic NetCDFs, temporary directories, and mocked downloads. They
 exercise merging, masks, profile targeting, metadata dimensions, stale sources,
 overwrite protection, dry-runs, and the command-line defaults.
+
+## Independent D-file verification
+
+```bash
+python verify_dfiles.py
+python verify_dfiles.py /path/to/6903708
+python verify_dfiles.py /path/to/6903708/D --verbose --no-save
+```
+
+With no arguments, checks float 6903708 in the usual processing directory.
+Accepts either the float directory or its `D/` directory and scans all `D*.nc`
+files there. It opens NetCDFs read-only and continues if a file is unreadable.
+
+The console lists each file, its profile count, parameters, and result. The full
+YAML inventory is saved to `reports/verification.yaml`, alongside the existing
+writer reports. It includes dimensions, variable names/types/shapes, profile
+sampling schemes, raw/adjusted/error sample counts, QC counts, and findings with
+profile indices and sample locations. Each rerun replaces this verification
+report. Use `--output path.yaml` to choose another destination, `--no-save` to
+write nothing, or `--verbose` to print individual findings. Findings are grouped:
+a missing-error finding may represent many measurements, recorded in `count`.
+
+Exit codes: **0** means no errors, **1** means validation errors, and **2** means
+an input/report-writing problem. `--strict` also returns 1 for warnings.
+If sibling `R/` files lack corresponding D-files, the report includes a warning.
+
+Implemented checks cover core profile format 3.1: required variables, dimensions
+and types; filename/profile identity; dates and position/time QC; data modes;
+adjusted values, uncertainties and QC consistency; profile QC summaries;
+pressure-QC dependencies; and calibration/history records. NaN/Inf and NULL
+character padding are reported. Rejected samples (QC 4/9) require filled adjusted
+values/errors; other assessed adjusted samples require values and uncertainties.
+The writer does not invent missing uncertainties, so otherwise
+well-formed retained profiles can fail this check.
+
+This is a local subset, **not full GDAC certification or scientific QC**. Extra
+parameters and unsupported format versions produce coverage warnings. It does
+not validate all attributes, reference-table vocabularies, metadata-file links,
+land masks, scientific calibration correctness, BGC or trajectory rules. Rules
+are based on the published [Argo User's Manual v3.3a](https://cdn.ioos.noaa.gov/media/2020/03/argo_user_manual_v3.3a.pdf)
+and [CTD QC Manual v3.3](https://cdn.ioos.noaa.gov/media/2020/03/Argo-QC-for-CTD-and-Trajectory-Data.pdf),
+particularly sections 3.6 and 4.7 of the latter. For submission validation, use
+the [official OneArgo format checker](https://github.com/OneArgo/ArgoFormatChecker)
+with the applicable specifications as well.
+
+Run verifier tests with `python -m unittest test_verify_dfiles -v`.
+
+
+## Assigning default uncertainties
+
+```bash
+python assign_uncertainties.py
+python assign_uncertainties.py /path/to/6903708
+python assign_uncertainties.py /path/to/6903708 --inspect
+```
+
+The default selects float 6903708, as in the processing script. This simple
+instruction generator asks for one positive uncertainty per core parameter:
+PRES in decibar, TEMP in degrees Celsius, and PSAL in psu. It applies that
+constant to every cycle and profile index; it does not infer sensor accuracy,
+perform scientific assessment, or offer visual/per-depth editing.
+
+Prompts suggest a previously saved default, otherwise a uniform positive
+existing `*_ADJUSTED_ERROR` value on assessed source samples if one exists.
+Varying source estimates are listed as a range and are not reduced to a single
+default. Measurement `resolution` is not used as uncertainty. There are no
+hard-coded scientific defaults. Source units must match the supported Argo
+units. An optional source/justification is recorded with each estimate.
+
+Enter accepts a displayed suggestion; with no suggestion, Enter skips the
+parameter. `skip` omits it even if previously saved. Ctrl-C cancels without
+saving. `--inspect` only lists source estimates. `--output path.yaml` selects
+another report location.
+
+The script replaces its own `instructions/uncertainties.yaml`, leaving visual
+rejections alone. Parameters with the same justification share one short block:
+
+```yaml
+schema_version: 1
+checker: default_uncertainties
+instructions:
+  - target:
+      float: '6903708'
+      selection: all_profiles
+    action: set_uncertainty
+    values:
+      PRES: 2.4
+      TEMP: 0.002
+      PSAL: 0.01
+    reason: "Example only: use estimates justified for this float"
+```
+
+`value` uses the parameter's native units; it changes uncertainty only, not
+measurements or QC. Float-wide defaults intentionally cover future cycles and
+updated R-files, so there are no source hashes in this short instruction file.
+The combiner expands defaults onto the selected files/profiles and records their
+current hashes in the processing reports. Cycle filters still apply. Applying
+the instructions is a separate step:
+
+```bash
+python dmqc_process.py write --overwrite
+python verify_dfiles.py
+```
+
+The writer assigns these values on present adjusted samples with QC 1/2/3/5/8,
+replacing existing error estimates there. QC 3 remains QC 3. Rejected profiles
+and QC 4/9 samples retain fill values. Omitted parameters retain the previous
+writer behaviour. Explicit profile estimates override float-wide defaults for
+their named parameters, regardless of instruction order. Conflicting values at
+the same scope stop combining, even if overridden or rejected; identical
+suggestions are compatible. Values must be positive, finite, and representable in the output
+variable without colliding with its fill value. Audit YAML preserves full
+instructions and the scientific-calibration comment records the assignment.
+
+Run `python -m unittest test_uncertainties -v` for generator/writer tests.
+
+
+For an exception, put a separate instruction in e.g.
+`instructions/uncertainty_overrides.yaml` so rerunning the default generator
+will not replace it. The existing explicit format is still supported:
+
+```yaml
+schema_version: 1
+checker: uncertainty_review
+instructions:
+  - target:
+      source: R6903708_001.nc
+      profile_index: 1
+      selection: whole_profile
+      parameters: [TEMP]
+    action: set_uncertainty
+    value: 0.005
+    reason: "Example profile-specific estimate"
+```
+
+This changes only the TEMP uncertainty for that profile index. Float-wide PRES
+and PSAL defaults still apply. Explicit instructions can still pin a
+`source_sha256`. Existing expanded default files remain readable; rerunning the
+generator rewrites them in compact form. Per-date/per-depth selectors remain
+future extensions. `all_profiles` currently supports only `set_uncertainty`,
+with a nonempty `values` mapping and a float identifier; source/profile selectors
+and source hashes cannot be mixed into this float-wide target.

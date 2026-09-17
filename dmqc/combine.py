@@ -1,8 +1,9 @@
 """Resolve partner suggestions without performing scientific checks."""
 from pathlib import Path
+from dataclasses import replace
 
 from .download import file_identity
-from .instructions import CORE_PARAMETERS, Decision, Target, sha256
+from .instructions import CORE_PARAMETERS, Decision, Target, FloatTarget, sha256, uncertainty_value
 
 
 def combine_instructions(instructions, r_dir, float_id=None, cycles=None):
@@ -16,11 +17,26 @@ def combine_instructions(instructions, r_dir, float_id=None, cycles=None):
 
     grouped = {}
     hashes = {}
+    defaults = []
     for item in instructions:
-        target = item.target
-        if target.selection != 'whole_profile' or target.parameters != CORE_PARAMETERS or target.sample_indices is not None or target.pressure_range is not None:
+        if isinstance(item.target, FloatTarget):
+            if item.action != 'set_uncertainty' or item.scope != 'float':
+                raise ValueError('Unsupported float-wide operation')
+            uncertainty_value(item.value)
+            if float_id is not None and item.target.float_id != str(float_id):
+                raise ValueError('Float-wide instruction belongs to another float')
+            defaults.append(item)
+            continue
+        target = Target(item.target.source, item.target.profile_index)
+        if item.action == 'set_uncertainty':
+            uncertainty_value(item.value)
+        elif item.target.parameters != CORE_PARAMETERS:
+            raise ValueError('Flag decisions must target all core parameters')
+        if not item.target.parameters or any(p not in CORE_PARAMETERS for p in item.target.parameters):
+            raise ValueError('Unsupported parameters')
+        if item.target.selection != 'whole_profile' or item.target.sample_indices is not None or item.target.pressure_range is not None:
             raise ValueError('Only whole-profile core-parameter decisions are implemented')
-        if item.action not in ('flag', 'no_finding') or (item.action == 'flag' and item.flag != '4'):
+        if item.action not in ('flag', 'no_finding', 'set_uncertainty') or (item.action == 'flag' and item.flag != '4'):
             raise ValueError('Unsupported instruction operation')
         source_float, cycle = file_identity(target.source)
         if float_id is not None and source_float != str(float_id):
@@ -53,5 +69,10 @@ def combine_instructions(instructions, r_dir, float_id=None, cycles=None):
             for iprof in range(len(ds.dimensions['N_PROF'])):
                 target = Target(path.name, iprof)
                 validate_target(ds, target)
-                decisions.append(Decision(target, hashes[path.name], tuple(grouped.get(target, ()))))
+                expanded = [replace(item, target=Target(path.name, iprof, item.target.parameters))
+                            for item in defaults if item.target.float_id == source_float]
+                decision = Decision(target, hashes[path.name], tuple(expanded + grouped.get(target, [])))
+                for parameter in CORE_PARAMETERS:
+                    decision.uncertainty(parameter)  # Conflicts stop before any output is written.
+                decisions.append(decision)
     return decisions

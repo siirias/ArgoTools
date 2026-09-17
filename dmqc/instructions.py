@@ -1,12 +1,13 @@
 """Provisional YAML adapter and format-independent instruction objects.
 
-Only whole-profile rejection and no-finding reports are executable in v1.
+Whole-profile rejection, no-finding reports and scalar uncertainties are executable.
 Target selection and operation are separate so later adapters can describe
 parameter/level flags, replacement values, and uncertainties without changing
 how files, profiles, and provenance are identified.
 """
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 import hashlib
+import math
 import os
 import tempfile
 from pathlib import Path
@@ -31,8 +32,15 @@ class Target:
 
 
 @dataclass(frozen=True)
+class FloatTarget:
+    float_id: str
+    parameters: tuple
+    selection: str = 'all_profiles'
+
+
+@dataclass(frozen=True)
 class Instruction:
-    target: Target
+    target: Target | FloatTarget
     action: str
     checker: str
     reason: str
@@ -40,6 +48,8 @@ class Instruction:
     flag: str | None = None
     source_sha256: str | None = None
     metadata: dict | None = None
+    value: float | None = None
+    scope: str = 'profile'
 
 
 @dataclass(frozen=True)
@@ -52,8 +62,21 @@ class Decision:
     def rejected(self):
         return any(item.action == 'flag' for item in self.suggestions)
 
+    def uncertainty(self, parameter):
+        by_scope = {}
+        for scope in ('float', 'profile'):
+            values = {s.value for s in self.suggestions if s.action == 'set_uncertainty'
+                      and parameter in s.target.parameters and s.scope == scope}
+            if len(values) > 1:
+                raise ValueError(f'{self.target.source} profile {self.target.profile_index}: conflicting {parameter} uncertainties at {scope} scope')
+            if values:
+                by_scope[scope] = next(iter(values))
+        return by_scope.get('profile', by_scope.get('float'))
+
     def as_dict(self):
-        return {**asdict(self), 'outcome': 'reject' if self.rejected else 'retain'}
+        return {**asdict(self), 'outcome': 'reject' if self.rejected else 'retain',
+                'uncertainties': {p: self.uncertainty(p) for p in CORE_PARAMETERS
+                                  if self.uncertainty(p) is not None}}
 
 
 def sha256(path):
@@ -107,7 +130,10 @@ def parse_document(document, origin):
         raise ValueError(f'{origin}: instructions must be a list')
     result = []
     for entry in entries:
-        _keys(entry, ('target', 'action', 'flag', 'reason', 'status', 'source_sha256'), origin)
+        if isinstance(entry, dict) and isinstance(entry.get('target'), dict) and entry['target'].get('selection') == 'all_profiles':
+            result.extend(_parse_float_default(entry, checker, metadata, origin))
+            continue
+        _keys(entry, ('target', 'action', 'flag', 'reason', 'status', 'source_sha256', 'value'), origin)
         target = entry.get('target')
         _keys(target, ('source', 'profile_index', 'selection', 'parameters'), origin)
         source = _text(target.get('source'), 'target.source')
@@ -117,14 +143,26 @@ def parse_document(document, origin):
             raise ValueError(f'{origin}: profile_index must be a zero-based nonnegative integer')
         if target.get('selection') != 'whole_profile':
             raise ValueError(f'{origin}: only selection: whole_profile is implemented')
-        if target.get('parameters', list(CORE_PARAMETERS)) != list(CORE_PARAMETERS):
+        if entry.get('action') == 'set_uncertainty' and 'parameters' not in target:
+            raise ValueError(f'{origin}: set_uncertainty requires explicit target.parameters')
+        parameters = target.get('parameters', list(CORE_PARAMETERS))
+        if not isinstance(parameters, list) or not parameters or any(p not in CORE_PARAMETERS for p in parameters) or len(set(parameters)) != len(parameters):
+            raise ValueError(f'{origin}: parameters must be a nonempty list of distinct core parameters')
+        if entry.get('action') != 'set_uncertainty' and parameters != list(CORE_PARAMETERS):
             raise ValueError(f'{origin}: v1 flags PRES, TEMP and PSAL together')
         status = entry.get('status', 'ready')
         if status != 'ready':
             raise ValueError(f'{origin}: decision is {status!r}; finish human review before writing')
         action = entry.get('action')
         flag = entry.get('flag')
-        if action == 'flag':
+        value = entry.get('value')
+        if action != 'set_uncertainty' and value is not None:
+            raise ValueError(f'{origin}: value is only supported for set_uncertainty')
+        if action == 'set_uncertainty':
+            if flag is not None:
+                raise ValueError(f'{origin}: uncertainty must not set a QC flag')
+            value = uncertainty_value(value)
+        elif action == 'flag':
             if str(flag) != '4':
                 raise ValueError(f'{origin}: v1 only supports flag 4 (bad)')
             flag = '4'
@@ -141,8 +179,43 @@ def parse_document(document, origin):
         if checksum is not None:
             if not isinstance(checksum, str) or len(checksum) != 64 or any(c not in '0123456789abcdef' for c in checksum):
                 raise ValueError(f'{origin}: invalid source_sha256')
-        result.append(Instruction(Target(source, index), action, checker, reason, str(origin), flag, checksum, metadata))
+        result.append(Instruction(Target(source, index, tuple(parameters)), action, checker, reason, str(origin), flag, checksum, metadata, value))
     return result
+
+
+def _parse_float_default(entry, checker, metadata, origin):
+    """Normalize the compact mapping to one internal instruction per parameter."""
+    _keys(entry, ('target', 'action', 'values', 'reason', 'status'), origin)
+    target = entry['target']
+    _keys(target, ('float', 'selection'), origin)
+    float_id = target.get('float')
+    if type(float_id) not in (str, int):
+        raise ValueError(f'{origin}: target.float must be a WMO identifier')
+    float_id = str(float_id)
+    source = f'R{float_id}_000.nc'
+    file_identity(source)
+    if entry.get('action') != 'set_uncertainty':
+        raise ValueError(f'{origin}: all_profiles only supports set_uncertainty')
+    values = entry.get('values')
+    _keys(values, CORE_PARAMETERS, origin)
+    if not values:
+        raise ValueError(f'{origin}: values must contain at least one parameter')
+    result = []
+    for parameter, value in values.items():
+        explicit = {k: v for k, v in entry.items() if k not in ('target', 'values')}
+        explicit.update(target={'source': source, 'profile_index': 0,
+                                'selection': 'whole_profile', 'parameters': [parameter]}, value=value)
+        normalized = parse_document({'schema_version': 1, 'checker': checker,
+                                     'metadata': metadata, 'instructions': [explicit]}, origin)[0]
+        result.append(replace(normalized, target=FloatTarget(float_id, (parameter,)), scope='float'))
+    return result
+
+
+def uncertainty_value(value):
+    """Require an explicit positive finite estimate, not a flag or missing value."""
+    if type(value) not in (int, float) or not math.isfinite(value) or value <= 0:
+        raise ValueError('Uncertainty must be a positive finite number')
+    return float(value)
 
 
 def load_instructions(directory, r_dir, float_id, cycles=None):
@@ -154,6 +227,11 @@ def load_instructions(directory, r_dir, float_id, cycles=None):
             result.extend(parse_document(read_yaml(path), path))
     selected = []
     for item in result:
+        if isinstance(item.target, FloatTarget):
+            if item.target.float_id != str(float_id):
+                raise ValueError(f'{item.origin}: instruction belongs to float {item.target.float_id}, not {float_id}')
+            selected.append(item)
+            continue
         source_float, cycle = file_identity(item.target.source)
         if source_float != str(float_id):
             raise ValueError(f'{item.origin}: source belongs to float {source_float}, not {float_id}')

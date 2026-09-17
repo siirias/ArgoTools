@@ -14,7 +14,7 @@ import numpy as np
 from netCDF4 import Dataset
 
 from .download import file_identity
-from .instructions import CORE_PARAMETERS, sha256
+from .instructions import CORE_PARAMETERS, sha256, uncertainty_value
 
 
 DEFAULT_META = {'institution': 'IF', 'operator': 'unknown', 'software': 'ADMW',
@@ -65,9 +65,18 @@ def validate_target(ds, target):
 def validate_source(ds, decision):
     target = decision.target
     validate_target(ds, target)
-    if any(s.target != target or s.action not in ('flag', 'no_finding') or
-           (s.action == 'flag' and s.flag != '4') for s in decision.suggestions):
-        raise ValueError('Decision contains unsupported or inconsistent instructions')
+    for suggestion in decision.suggestions:
+        st = suggestion.target
+        if (st.source != target.source or st.profile_index != target.profile_index or
+                st.selection != 'whole_profile' or st.sample_indices is not None or st.pressure_range is not None):
+            raise ValueError('Decision contains inconsistent targets')
+        if suggestion.action == 'set_uncertainty':
+            uncertainty_value(suggestion.value)
+            if not st.parameters or any(p not in CORE_PARAMETERS for p in st.parameters) or suggestion.flag is not None:
+                raise ValueError('Unsupported uncertainty instruction')
+        elif (suggestion.action not in ('flag', 'no_finding') or st.parameters != CORE_PARAMETERS or
+              (suggestion.action == 'flag' and suggestion.flag != '4')):
+            raise ValueError('Decision contains unsupported instructions')
     require(ds, 'DATA_MODE', (), char=True)  # One character per profile.
     if ds['DATA_MODE'].dimensions != ('N_PROF',):
         raise ValueError('DATA_MODE must use N_PROF')
@@ -93,6 +102,12 @@ def validate_source(ds, decision):
         require(ds, 'PROFILE_' + p + '_QC', (), char=True)
         if ds['PROFILE_' + p + '_QC'].dimensions != ('N_PROF',):
             raise ValueError(f'{p}: profile QC must use N_PROF')
+    for p in CORE_PARAMETERS:
+        value = decision.uncertainty(p)
+        if value is not None:
+            var = ds[p + '_ADJUSTED_ERROR']
+            if value >= np.finfo(var.dtype).max or value < np.finfo(var.dtype).tiny or np.asarray(value, dtype=var.dtype) == var._FillValue:
+                raise ValueError(f'{p}: uncertainty is not representable as a non-fill value')
     require(ds, 'PARAMETER', ('N_PROF', 'N_CALIB', 'N_PARAM'), char=True)
     for field in ('DATE', 'EQUATION', 'COEFFICIENT', 'COMMENT'):
         require(ds, 'SCIENTIFIC_CALIB_' + field, ('N_PROF', 'N_CALIB', 'N_PARAM'), char=True)
@@ -133,7 +148,7 @@ def observed_samples(ds, parameter, profile):
     return present & (raw_qc != b'9') & (adjusted_qc != b'9')
 
 
-def retained_arrays(ds, parameter, iprof):
+def retained_arrays(ds, parameter, iprof, uncertainty=None):
     """Retain existing adjustments/QC; use raw data when adjustments are absent.
 
     Existing flags 3/4/9 are not upgraded. Fill values for QC 4/9 are enforced;
@@ -153,6 +168,9 @@ def retained_arrays(ds, parameter, iprof):
     missing_or_bad = np.isin(flags, [b'4', b'9'])
     adjusted[missing_or_bad] = np.ma.masked
     errors[missing_or_bad | np.ma.getmaskarray(adjusted) | copied] = np.ma.masked
+    if uncertainty is not None:
+        eligible = ~np.ma.getmaskarray(adjusted) & np.isin(flags, [b'1', b'2', b'3', b'5', b'8'])
+        errors[eligible] = uncertainty
     return adjusted, flags, errors, int(copied.sum())
 
 
@@ -206,11 +224,20 @@ def _apply(ds, decisions, meta, history_start, calib_index, report_name):
                     var[ip, :] = np.ma.masked_all(var.shape[1], dtype=var.dtype)
                 comment = f'Bad profile; no correction applied. {reasons}'
             else:
-                adjusted, flags, errors, copied = retained_arrays(ds, p, ip)
+                adjusted, flags, errors, copied = retained_arrays(ds, p, ip, decision.uncertainty(p))
                 ds[p + '_ADJUSTED'][ip, :] = adjusted
                 ds[p + '_ADJUSTED_ERROR'][ip, :] = errors
                 comment = ('No rejection instruction. Existing adjustments and QC retained; '
-                           'raw data used where adjustments absent. No uncertainty estimated.')
+                           'raw data used where adjustments absent.')
+                estimate = decision.uncertainty(p)
+                if estimate is not None:
+                    scope = 'profile' if any(s.action == 'set_uncertainty' and p in s.target.parameters
+                                             and s.scope == 'profile' for s in decision.suggestions) else 'float'
+                    provenance = '; '.join(f'{s.checker}: {s.reason}' for s in decision.suggestions
+                                           if s.action == 'set_uncertainty' and p in s.target.parameters and s.scope == scope)
+                    comment = f'Assigned {p}_ADJUSTED_ERROR={estimate:g}. {provenance}. ' + comment
+                else:
+                    comment += ' No uncertainty estimated.'
             ds[p + '_ADJUSTED_QC'][ip, :] = flags
             ds['PROFILE_' + p + '_QC'][ip] = profile_qc(flags)
             j = names.index(p)
@@ -270,7 +297,7 @@ def validate_output(source, output, decisions):
                     if valid(dst[p + '_ADJUSTED'], ip).any() or valid(dst[p + '_ADJUSTED_ERROR'], ip).any():
                         raise ValueError('Rejected adjusted values/errors must be missing')
                 else:
-                    adjusted, expected, errors, _ = retained_arrays(src, p, ip)
+                    adjusted, expected, errors, _ = retained_arrays(src, p, ip, decision.uncertainty(p))
                     for suffix, values in (('_ADJUSTED', adjusted), ('_ADJUSTED_ERROR', errors)):
                         actual = dst[p + suffix][ip]
                         np.testing.assert_array_equal(np.ma.getmaskarray(actual), np.ma.getmaskarray(values))
