@@ -1,0 +1,42 @@
+# Raw PRES/PSAL are used. Surface range is inclusive, in dbar.
+# Initial surface definition: review these settings for your application.
+surface:
+  pressure_range_dbar: [0, 8]
+  statistic: median
+  minimum_samples: 1
+  pressure_qc: ['1']
+  salinity_qc: ['1', '4']
+
+
+# Define rectangles where given max Sea Surface Salinity (SSS) is expected. If SSS exceeds the max, the profile is flagged as bad.
+
+areas:
+  - name: Bornholm_Basin
+    latitude: [53.5, 56.2]
+    longitude: [10.5, 17.5]
+    maximum_surface_salinity: 8.5
+
+  - name: Gdansk_Basin
+    latitude: [53.5, 56.2]
+    longitude: [17.5, 21.0]
+    maximum_surface_salinity: 8.2
+
+  - name: Baltic_Proper
+    latitude: [56.2, 58.4]
+    longitude: [17.5, 25.0]
+    maximum_surface_salinity: 8.0
+
+  - name: Northern_Baltic_Proper
+    latitude: [58.4, 59.8]
+    longitude: [17.0, 25.0]
+    maximum_surface_salinity: 7.5
+
+  - name: Bothnian_Sea
+    latitude: [59.8, 63.5]
+    longitude: [16.0, 24.0]
+    maximum_surface_salinity: 6.0
+
+  - name: latitude_63_5_to_66
+    latitude: [63.5, 66.0]
+    longitude: [16.0, 26.0]
+    maximum_surface_salinity: 4.0

@@ -81,7 +81,7 @@ manifest: an absent checker report is not detected as unfinished work.
 ## Inspecting and saving flags
 
 ```bash
-python DMQC_inspector.py
+python dmqc_inspector.py
 ```
 
 - **Up/Down** selects a cycle; **P** changes profile index.
@@ -120,6 +120,20 @@ asks you to reopen so the display reflects the new inputs. This check is for
 that inspection session; previously saved acceptances remain applicable to later
 checker results according to priority. Saving errors leave the window open and
 unsaved decisions in memory. Run `dmqc_process.py write` separately to apply them.
+
+### Inspector navigation performance
+
+Arrow navigation reuses the rendered profile cloud and cached decisions. Only
+the two selected-profile overlays and status text are repainted, using blitting
+when the plotting backend supports it. Header/footer space is fixed so changing
+reasons does not trigger layout calculation or move the plot axes. All reasons
+remain available; unusually long text is fitted into the footer with smaller type.
+
+Flag changes and profile-index changes rebuild the cloud background. Zoom/pan,
+resize and export invalidate the cached image so later navigation cannot restore
+an outdated view. PNG and toolbar exports include the selected curves and labels.
+Backends without blitting use a normal full redraw. Switching to an uncached
+profile index with P still reads its data once; Up/Down performs no file reads.
 
 ## Provisional instruction adapter
 

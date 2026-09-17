@@ -157,7 +157,8 @@ def make_temp_psal_cloud_figure(
     juld_filled, norm, use_real_time, tick_positions, tick_labels = prepare_time_norm_and_labels(juld_raw)
 
     # --- Build figure: TEMP left, PSAL right ---
-    fig, (axT, axS) = plt.subplots(ncols=2, figsize=figsize, constrained_layout=True)
+    fig, (axT, axS) = plt.subplots(ncols=2, figsize=figsize)
+    fig.subplots_adjust(left=0.08, right=0.98, bottom=0.42, top=0.77, wspace=0.20)
 
     n_T = 0
     n_S = 0
@@ -188,10 +189,10 @@ def make_temp_psal_cloud_figure(
 
     axT.set_ylabel("Pressure (dbar)")
     axT.set_xlabel("Temperature (°C)")
-    axT.set_title(f"TEMP cloud (R-files), iprof={iprof}  (n={n_T})")
+    axT.set_title(f"TEMP cloud (R-files), iprof={iprof}  (n={n_T})", y=1.0)
 
     axS.set_xlabel("Salinity (PSU)")
-    axS.set_title(f"PSAL cloud (R-files), iprof={iprof}  (n={n_S})")
+    axS.set_title(f"PSAL cloud (R-files), iprof={iprof}  (n={n_S})", y=1.0)
     axS.set_ylabel("")
 
     # --- One shared colorbar (time), matching the plotted colours ---
@@ -200,10 +201,8 @@ def make_temp_psal_cloud_figure(
 
     cbar = fig.colorbar(
         sm,
-        ax=[axT, axS],
+        cax=fig.add_axes([0.22, 0.29, 0.56, 0.025]),
         orientation="horizontal",
-        fraction=0.06,
-        pad=0.08,
     )
 
     if use_real_time:
@@ -214,6 +213,59 @@ def make_temp_psal_cloud_figure(
         cbar.set_label("Profile order (JULD missing)")
 
     return fig, (axT, axS), cbar, lines_temp, lines_psal
+
+class _NavigationRenderer:
+    """Cache the static cloud; repaint highlights and text on navigation.
+
+    Artists stay non-animated so normal savefig/toolbar exports include them.
+    Only rebuilding the background needs a second draw without the overlays.
+    """
+    def __init__(self, fig, artists, axes):
+        self.fig = fig
+        self.artists = artists
+        self.background = None
+        self.capturing = False
+        self.supports_blit = fig.canvas.supports_blit
+        fig.canvas.mpl_connect('draw_event', self._on_draw)
+        fig.canvas.mpl_connect('resize_event', self.invalidate)
+        for ax in axes:
+            ax.callbacks.connect('xlim_changed', self.invalidate)
+            ax.callbacks.connect('ylim_changed', self.invalidate)
+
+    def invalidate(self, *_):
+        self.background = None
+
+    def _on_draw(self, event):
+        if self.capturing or not self.supports_blit:
+            return
+        self.invalidate()
+        if event.canvas.is_saving():
+            return
+        visible = [artist.get_visible() for artist in self.artists]
+        self.capturing = True
+        try:
+            for artist in self.artists:
+                artist.set_visible(False)
+            event.canvas.draw()
+            self.background = event.canvas.copy_from_bbox(self.fig.bbox)
+        finally:
+            for artist, was_visible in zip(self.artists, visible):
+                artist.set_visible(was_visible)
+            self.capturing = False
+        self.paint()
+
+    def paint(self, full=False):
+        if full:
+            self.invalidate()
+        if not self.supports_blit or self.background is None:
+            self.fig.canvas.draw_idle()
+            return
+        self.fig.canvas.restore_region(self.background)
+        for artist in self.artists:
+            if artist.get_visible():
+                self.fig.draw_artist(artist)
+        self.fig.canvas.blit(self.fig.bbox)
+
 
 def enable_profile_navigation(
     fig, axT, axS, rfiles, lines_temp, lines_psal, cbar,
@@ -300,7 +352,27 @@ def enable_profile_navigation(
     # Reuse already plotted data, and cache other indices after their first visit.
     cache = {iprof: (dates, [(lt.get_data(), ls.get_data())
                             for lt, ls in zip(lines_temp, lines_psal)])}
-    date_title = fig.suptitle("")
+    date_title = fig.suptitle("", y=0.99)
+    status_text = fig.supxlabel('', y=0.015, fontsize=9)
+    highlights = [ax.plot([], [], linewidth=sel_lw, alpha=sel_alpha, zorder=5)[0]
+                  for ax in (axT, axS)]
+    renderer = _NavigationRenderer(fig, [*highlights, date_title, status_text,
+                                        axT.title, axS.title], (axT, axS))
+    # Keep callbacks/renderer alive and expose highlights for embedding/testing.
+    fig._dmqc_renderer = renderer
+    fig._dmqc_highlights = highlights
+    source_names = [Path(path).name for path in rfiles]
+    resolved = {}
+
+    def _resolve_flags():
+        resolved.clear()
+        for key in set(external) | set(state['overrides']):
+            resolved[key] = _decision(key)
+        state['flagged'] = {key for key, decision in resolved.items() if decision.rejected}
+
+    def _selected_decision(key):
+        return resolved.get(key) or Decision(Target(*key), source_hashes[key[0]], ())
+
 
     def _refresh_cloud():
         nonlocal dates, base_colors
@@ -343,36 +415,23 @@ def enable_profile_navigation(
             ax.autoscale(enable=True)
             ax.yaxis.set_inverted(True)
 
-    def _apply_styles():
-        state['flagged'] = {key for key in set(external) | set(state['overrides']) if _decision(key).rejected}
-        i = state["i"]
-
-        # Restore time colours when unflagged; red overrides colour only.
-        for position, (lt, ls) in enumerate(zip(lines_temp, lines_psal)):
-            key = (Path(rfiles[position]).name, state["iprof"])
-            color = "#ff0000" if key in state["flagged"] else base_colors[position]
-            if lt is not None:
-                lt.set_color(color)
-                lt.set_alpha(base_alpha)
-                lt.set_linewidth(base_lw)
-                lt.set_zorder(1)
-            if ls is not None:
-                ls.set_color(color)
-                ls.set_alpha(base_alpha)
-                ls.set_linewidth(base_lw)
-                ls.set_zorder(1)
-
-        # highlight selected
-        lt = lines_temp[i]
-        ls = lines_psal[i]
-        if lt is not None:
-            lt.set_alpha(sel_alpha)
-            lt.set_linewidth(sel_lw)
-            lt.set_zorder(5)
-        if ls is not None:
-            ls.set_alpha(sel_alpha)
-            ls.set_linewidth(sel_lw)
-            ls.set_zorder(5)
+    def _apply_styles(full=False, decisions_changed=False):
+        if decisions_changed:
+            _resolve_flags()
+        i = state['i']
+        if full:
+            # Only rebuild static line styles after flags or profile index change.
+            for position, pair in enumerate(zip(lines_temp, lines_psal)):
+                key = (source_names[position], state['iprof'])
+                color = '#ff0000' if key in state['flagged'] else base_colors[position]
+                for line in pair:
+                    line.set_color(color)
+                    line.set_alpha(base_alpha)
+                    line.set_linewidth(base_lw)
+                    line.set_zorder(1)
+        for overlay, source in zip(highlights, (lines_temp[i], lines_psal[i])):
+            overlay.set_data(*source.get_data())
+            overlay.set_color(source.get_color())
 
         index = state["iprof"]
         date = (_juld_to_datetime(dates[i]).strftime("%Y-%m-%d %H:%M UTC")
@@ -380,7 +439,7 @@ def enable_profile_navigation(
         availability = " — unavailable in this cycle" if index >= profile_counts[i] else ""
         key = (Path(rfiles[i]).name, index)
         status = "FLAGGED BAD" if key in state["flagged"] else "Unflagged"
-        winners = _decision(key).winning_suggestions if not availability else ()
+        winners = _selected_decision(key).winning_suggestions if not availability else ()
         if winners:
             status += f' | Effective priority {winners[0].priority}'
         override = state['overrides'].get(key)
@@ -398,14 +457,18 @@ def enable_profile_navigation(
         )
         dirty = " — unsaved changes" if state["overrides"] != saved_overrides else ""
         details = [f'{s.checker}: {s.action}, priority {s.priority}: {s.reason or "No reason supplied"}'
-                   for s in _decision(key).suggestions] if not availability else []
+                   for s in _selected_decision(key).suggestions] if not availability else []
         description = '\n'.join(textwrap.fill(line, width=130) for line in details)
-        fig.supxlabel(f"{save_message}{dirty}\n{description}", fontsize=9)
+        footer = f"{save_message}{dirty}\n{description}"
+        status_text.set_text(footer)
+        # Fit all reasons inside the reserved footer band without moving the axes.
+        lines = max(1, len(footer.splitlines()))
+        status_text.set_fontsize(min(9, fig.get_figheight() * 72 * .20 / (lines * 1.2)))
         cyc = _cycle_from_filename(rfiles[i])
-        axT.set_title(f"TEMP cloud (R-files) — selected #{i+1}/{n} (cycle {cyc})")
-        axS.set_title(f"PSAL cloud (R-files) — selected #{i+1}/{n} (cycle {cyc})")
+        axT.set_title(f"TEMP cloud (R-files) — selected #{i+1}/{n} (cycle {cyc})", y=1.0)
+        axS.set_title(f"PSAL cloud (R-files) — selected #{i+1}/{n} (cycle {cyc})", y=1.0)
 
-        fig.canvas.draw_idle()
+        renderer.paint(full=full)
 
     def _save_flags():
         nonlocal saved_overrides, save_message
@@ -452,7 +515,7 @@ def enable_profile_navigation(
             position = indices.index(state["iprof"])
             state["iprof"] = indices[(position + 1) % len(indices)]
             _refresh_cloud()
-            _apply_styles()
+            _apply_styles(full=True)
         elif event.key in (" ", "space", "f", "F"):
             count = profile_counts[state["i"]]
             if state["iprof"] < count:
@@ -471,14 +534,14 @@ def enable_profile_navigation(
                         'Whole-profile rejection overridden during visual inspection; source QC retained.',
                         str(instructions_path), flag='4' if flag_bad else None,
                         source_sha256=source_hashes[source], priority=100)
-                _apply_styles()
+                _apply_styles(full=True, decisions_changed=True)
 
         elif event.key in ('r', 'R'):
             source = Path(rfiles[state['i']]).name
             targets = range(profile_counts[state['i']]) if event.key == 'R' else [state['iprof']]
             for index in targets:
                 state['overrides'].pop((source, index), None)
-            _apply_styles()
+            _apply_styles(full=True, decisions_changed=True)
 
     def _standard_keys(event):
         if event.key not in ("p", "P", " ", "space", "f", "F", "enter", "return", "q", "Q", "r", "R"):
@@ -489,7 +552,7 @@ def enable_profile_navigation(
         fig.canvas.mpl_disconnect(manager.key_press_handler_id)
         manager.key_press_handler_id = fig.canvas.mpl_connect("key_press_event", _standard_keys)
     fig.canvas.mpl_connect("key_press_event", _on_key)
-    _apply_styles()
+    _apply_styles(full=True, decisions_changed=True)
     return state  # returned so GUI can read current selection later
 
 
