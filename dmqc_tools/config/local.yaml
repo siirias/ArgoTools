@@ -1,0 +1,18 @@
+# Personal settings for this checkout. Edit the TWO active settings below.
+# local.yaml is personal and ignored by Git. All DMQC scripts share it.
+# The work directory is the PARENT of your float directories (each has R/, D/, etc.).
+# Choose a path suitable for the Python environment you are running:
+#
+# Windows (forward slashes work and avoid YAML escape sequences):
+# work_directory: 'C:/Data/ARGO_Dataa/DMQCprocessing'
+# Windows backslashes also work inside SINGLE quotes:
+# work_directory: 'C:\Data\ARGO_Dataa\DMQCprocessing'
+# Linux:
+# work_directory: '/home/yourname/argo/DMQCprocessing'
+# WSL (Linux Python accessing the Windows C: drive):
+# work_directory: '/mnt/c/Data/ARGO_Dataa/DMQCprocessing'
+# A leading ~ expands to your home directory on either OS.
+# Relative paths resolve against THIS file's folder, not the shell's folder.
+
+work_directory: '/mnt/c/Data/ARGO_Dataa/DMQCprocessing'
+default_float: '6903708'

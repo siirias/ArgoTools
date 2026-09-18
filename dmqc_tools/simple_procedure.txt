@@ -1,0 +1,13 @@
+Quick test.
+
+1 - set your working directory and float you want to try in
+	config/local.yaml
+2 - python dmqc_process.py download
+3 - any dmqc proces steps needed.
+	for visual:
+	python dmqc_inspector.py
+4 - python dmqc_process.py write
+
+5 - python verify_dfiles.py
+
+

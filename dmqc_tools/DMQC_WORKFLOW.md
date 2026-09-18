@@ -156,7 +156,7 @@ unsaved decisions in memory. Run `dmqc_process.py write` separately to apply the
 ### Inspector navigation performance
 
 Arrow navigation reuses the rendered profile cloud and cached decisions. Only
-the two selected-profile overlays and status text are repainted, using blitting
+the selected-profile overlays and status text are repainted, using blitting
 when the plotting backend supports it. Header/footer space is fixed so changing
 reasons does not trigger layout calculation or move the plot axes. All reasons
 remain available; unusually long text is fitted into the footer with smaller type.
@@ -593,3 +593,38 @@ Absent fields retain their original fill values and blank flags; the writer
 never fabricates salinity or temperature for a pressure-only profile. Source
 hashes and per-parameter changes remain in the audit reports. Regression tests:
 `python -m unittest test_partial_profiles -v`.
+
+
+## Viewing additional measurement parameters
+
+`dmqc_inspector.py` discovers numeric measurements in `STATION_PARAMETERS` for
+each profile index. TEMP and PSAL appear first, followed by other parameters in
+alphabetical order. Each panel shows raw values against PRES from the same
+profile. Variable `long_name` and `units` supply axis labels; missing metadata
+falls back to the variable name and an explicit “units unavailable” label.
+
+There are at most three panels per row. Additional rows make the window taller.
+The panel set is the union across cycles for the current profile index; arrow
+navigation keeps that layout and uses the existing fast repaint path. Where the
+selected cycle lacks a parameter, its background cloud stays visible with
+“Not measured in this profile” and no highlighted curve. Declared parameters
+with no finite value/pressure pairs show “No usable samples”. P changes profile
+index and rebuilds the panel layout if needed, reusing cached data on return.
+Pressure-only profiles show an explanatory empty panel.
+
+PRES is the vertical coordinate, not a separate measurement panel. Auxiliary
+MTIME and NB_SAMPLE_CTD fields and QC/error/adjusted fields are excluded. Only
+numeric `(N_PROF, N_LEVELS)` arrays sharing pressure's exact dimensions and shape
+are paired; matching lengths alone are insufficient. Skipped incompatible or
+missing variables are reported in the console. All panels share pressure limits.
+Different measurement unit strings get separate panels without unit conversion;
+inconsistent pressure units stop loading rather than mixing vertical scales
+(`dbar`, `decibar`, and `decibars` are treated as the same pressure unit).
+
+Extra sensor panels are marked **view only**. They remain time-coloured when a
+core profile is rejected; Space/F still affect only the existing core
+PRES/TEMP/PSAL decision. This does not add QC for oxygen, chlorophyll, etc.
+The inspector reads only the R-files already present in `R/`; it does not fetch
+or join separate B-/S-profile files. PNG export is now `cloud_profiles_R_only.png`.
+
+Tests: `python -m unittest test_dmqc_inspector test_inspector_parameters -v`.
